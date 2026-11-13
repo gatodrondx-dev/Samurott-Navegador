@@ -1,0 +1,3 @@
+/dgt/*     https://nap.dgt.es/:splat              200
+/dgtimg/*  http://infocar.dgt.es/:splat           200
+/ign/*     https://api-features.ign.es/:splat     200

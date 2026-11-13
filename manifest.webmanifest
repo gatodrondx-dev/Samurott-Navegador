@@ -1,0 +1,32 @@
+{
+  "name": "Mapa de España",
+  "short_name": "Mapa España",
+  "description": "Mapa de España con rutas guiadas, velocidad, rumbo, carretera, kilómetro, viaje, radares, Street View y capas del IGN y de la Xunta",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14201b",
+  "theme_color": "#1f6f5c",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+MAPA DE ESPAÑA - VERSIÓN PARA MÓVIL (se instala desde Chrome, en vertical)
+==========================================================================
+
+Es la misma app que la de PC, adaptada al móvil: el mapa arriba, el panel de
+información abajo y el menú escondido detrás del botón de las tres rayas.
+
+PASO 1: publicar la carpeta (gratis)
+------------------------------------
+Chrome solo deja instalar la app, y el móvil solo da la ubicación, si la
+carpeta está publicada con dirección https://.
+
+Netlify Drop (lo más rápido):
+  1. Entra en https://app.netlify.com/drop desde el ordenador.
+  2. Arrastra esta carpeta entera a la página.
+  3. Te da una dirección https://algo.netlify.app. Para que no caduque,
+     crea una cuenta gratuita y reclama el sitio.
+
+Para ACTUALIZAR una versión ya publicada:
+  1. Entra en tu sitio de Netlify > Deploys.
+  2. Arrastra la carpeta nueva a la zona de "Drag and drop".
+  3. En el móvil, cierra la app del todo y ábrela dos veces con internet.
+
+IMPORTANTE: la carpeta incluye un archivo llamado "_redirects" (sin extensión). Hace que
+la app pida las cámaras de la DGT, sus fotos y los límites municipales del IGN a través
+de tu propio sitio de Netlify, y así el navegador no los bloquea. Arrastra la carpeta
+ENTERA, con ese archivo dentro. En Windows puede estar oculto: no lo borres.
+(Con GitHub Pages ese archivo no funciona; las cámaras pueden no cargar.)
+
+PASO 2: instalar en el móvil
+----------------------------
+  1. Abre la dirección en Chrome del móvil.
+  2. Menú de tres puntos > "Instalar aplicación".
+  3. Se crea un icono y se abre como una app, sin barra del navegador.
+  Si ya la tenías instalada y sigue girando con el móvil, desinstálala y
+  vuelve a instalarla para que coja el bloqueo en vertical.
+
+QUÉ INCLUYE
+-----------
+  - Ruta de A a B con paradas intermedias, guiado y voz (menú > Ruta de A a B),
+    rutas guardadas para repetirlas rápido y posibilidad de empezar por el medio.
+  - Avisos de curvas del 1 (horquilla) al 6 (a fondo), las curvas enlazadas
+    avisadas juntas, y botones para silenciar la ruta y las curvas por separado.
+  - Modo Conducir o andar: velocidad, rumbo, carretera, kilómetro, sentido,
+    concello y parroquia, altitud y hora del sol.
+  - Viaje con pantalla final (salida, llegada, recorrido, desnivel) que se
+    envía por WhatsApp. Radar de tramo con pitido.
+  - Mapa con el norte arriba o con el rumbo arriba (botón abajo a la izquierda,
+    en el modo Conducir o andar), y pausa del viaje para las paradas.
+  - Cámaras de tráfico de la DGT (menú > Cámaras): se abren pequeñas en la app
+    o en grande en una pestaña nueva.
+  - Carga de tus propios radares desde un archivo.
+  - Límites municipales, concellos y parroquias de Galicia, Street View,
+    fotos aéreas de 1956-57 y 1981-86, relieve y mapas base del IGN.
+
+NOTAS
+-----
+  - Con GPS, la velocidad, el rumbo y la altitud son reales.
+  - Si usas una clave de Google para Street View restringida por sitio web,
+    añade la dirección de tu publicación (por ejemplo https://algo.netlify.app/*).
+  - Si cambias algo en index.html, vuelve a publicar la carpeta.
+  - Úsala con el coche parado o que la mire otra persona.
+
+DATOS Y CRÉDITOS
+----------------
+Mapas, hitos kilométricos y límites: IGN. Parroquias y concellos: Xunta de
+Galicia (IET). Carreteras, radares y rutas: OpenStreetMap. Relieve: Esri y
+Open-Meteo.

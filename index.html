@@ -1,0 +1,2829 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapa de España</title>
+<meta name="theme-color" content="#1f6f5c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root {
+    --bg: #f5f6f2; --panel: #ffffff; --ink: #1d2a24; --muted: #5d6b64;
+    --line: #d6dbd3; --accent: #1f6f5c; --accent-ink: #ffffff; --km: #c2410c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14201b; --panel: #1c2b24; --ink: #e6efe9; --muted: #98a9a0;
+            --line: #2f4339; --accent: #4fb89d; --accent-ink: #0d1713; --km: #fb923c; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: var(--ink); background: var(--bg); display: flex; flex-direction: column; }
+  header { display: flex; gap: 12px; align-items: center; padding: 10px 14px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; margin-right: 6px; }
+  #buscar { display: flex; gap: 6px; flex: 1; min-width: 220px; max-width: 460px; }
+  #buscar input { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 14px; }
+  button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-ink); font-size: 14px; cursor: pointer; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  main { flex: 1 1 auto; position: relative; min-height: 300px; overflow: hidden; }
+  aside { position: absolute; top: 0; bottom: 0; left: 0; width: 270px; z-index: 900; padding: 14px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; font-size: 14px; }
+  aside h2 { font-size: 13px; margin: 16px 0 8px; color: var(--muted); font-weight: 600; }
+  aside h2:first-child { margin-top: 0; }
+  label.op { display: flex; gap: 8px; align-items: center; padding: 5px 0; cursor: pointer; }
+  select { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 14px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .nota { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 6px 0 0; }
+  #mapa { position: absolute; top: 0; bottom: 0; left: 270px; right: 0; background: #cfd8d3; }
+  #estado { position: absolute; z-index: 1000; left: 286px; bottom: 12px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 7px 11px; font-size: 13px; display: flex; gap: 14px; flex-wrap: wrap; max-width: calc(100% - 300px); }
+  #estado b { color: var(--km); }
+  .km-etq { background: var(--km); color: #fff; border: 0; border-radius: 4px; padding: 1px 5px; font-weight: 600; font-size: 11px; box-shadow: none; }
+  .km-etq::before { display: none; }
+  .aviso { color: var(--km); }
+
+  .peg { background: var(--panel); border: 2px solid rgba(0,0,0,.25); border-radius: 4px; }
+  .peg button { display: block; width: 34px; height: 38px; padding: 3px; background: transparent; border-radius: 4px; cursor: grab; touch-action: none; }
+  .peg button.activo { outline: 2px solid var(--accent); }
+  .peg button { color: #1d2a24; }
+  #ubic { cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  #pegfantasma { position: fixed; z-index: 6000; pointer-events: none; width: 30px; height: 44px; filter: drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
+  .soltando { cursor: crosshair !important; }
+  .pegmarca { background: none; border: 0; }
+  #mapa.conSV { right: 46%; }
+  #sv { position: absolute; top: 0; bottom: 0; right: 0; width: 46%; z-index: 1100; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+  #sv[hidden] { display: none; }
+  #svbar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  #svbar span { font-weight: 600; flex: 1; }
+  #svbar a { color: var(--accent); }
+  #svbar button { padding: 4px 10px; }
+  #svnota { padding: 6px 12px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  #svnota[hidden] { display: none; }
+  .parro-etq { background: transparent; border: 0; box-shadow: none; padding: 0; color: #5b0a3a; font-weight: 700; font-size: 11px; white-space: nowrap;
+    text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 3px #fff; }
+  .parro-etq::before { display: none; }
+  .parro-etq.parro-peq { font-size: 9px; }
+
+  .ubic-icono { background: none; border: 0; }
+  .ubic-flecha { position: absolute; inset: 0; opacity: 0; transition: transform .3s; }
+  .ubic-flecha::before { content: ''; position: absolute; left: 50%; top: 1px; margin-left: -8px; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 14px solid #2563eb; filter: drop-shadow(0 0 2px #fff); }
+  .ubic-centro { position: absolute; left: 11px; top: 11px; width: 18px; height: 18px; border-radius: 50%; background: #2563eb; border: 3px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,.5); }
+  #svframe { flex: 1; border: 0; width: 100%; background: #000; }
+  #svmsg { padding: 18px; font-size: 14px; line-height: 1.5; }
+  #svmsg[hidden], #svframe[hidden] { display: none; }
+  #svkey { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 14px; margin: 4px 0 8px; }
+  #btnMenu { padding: 8px 12px; font-size: 18px; line-height: 1; }
+  aside { position: fixed; top: 0; bottom: 0; left: 0; right: auto; width: min(86%, 330px); max-height: none; z-index: 3000; transform: translateX(-105%); transition: transform .2s ease; box-shadow: 4px 0 16px rgba(0,0,0,.3); border-bottom: 0; }
+  body.menu aside { transform: none; }
+  #mapa { left: 0; right: 0; top: 0; bottom: var(--hudH, 0px); }
+  #mapa.conSV { right: 46%; }
+  #sv { bottom: var(--hudH, 0px); }
+  #estado { left: 12px; max-width: calc(100% - 24px); }
+  body.ruta #estado { display: none; }
+  #hud { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1050; background: var(--panel); color: var(--ink); border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(0,0,0,.2); padding: 6px 14px 8px; display: grid; grid-template-columns: auto 1fr auto; gap: 4px 18px; align-items: center; }
+  #hud[hidden] { display: none; }
+  #hudVel { display: flex; align-items: baseline; gap: 4px; }
+  #hudKmh { font-size: 44px; font-weight: 700; line-height: 1; min-width: 2.2ch; text-align: right; }
+  #hud small { color: var(--muted); font-size: 13px; }
+  #hudInfo { min-width: 0; line-height: 1.25; }
+  #hudRuta { font-size: 20px; font-weight: 700; }
+  #hudSentido { font-size: 13px; color: var(--muted); }
+  #hudMuni { font-size: 15px; font-weight: 600; }
+  #hudSol { font-size: 13px; color: var(--muted); }
+  #hudExtra, #hudViaje, #hudTramo { font-size: 13px; color: var(--ink); }
+  #hudExtra:empty, #hudViaje:empty, #hudTramo:empty { display: none; }
+  #hudTramo.excede { color: #dc2626; font-weight: 700; }
+  #hudRumbo { display: flex; align-items: center; gap: 8px; }
+  #hudFlecha { width: 28px; height: 28px; transition: transform .3s; opacity: .35; }
+  #hudCard { font-size: 20px; font-weight: 700; }
+  #hudBotones { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+  #hud button { padding: 5px 10px; font-size: 12.5px; }
+  #hud button.sec { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  #hud button.on { background: #c2410c; }
+  #hud button[hidden] { display: none; }
+  #resumen { position: fixed; inset: 0; z-index: 8000; background: var(--bg); color: var(--ink); display: flex; align-items: flex-start; justify-content: center; padding: 20px; overflow-y: auto; }
+  #resumen[hidden] { display: none; }
+  #resCaja { width: min(720px, 100%); margin: auto; }
+  #resTrayecto div { margin-top: 2px; }
+  #resTrazado { margin: 0 0 16px; }
+  #resTrazado .titulo { color: var(--muted); font-size: 14px; margin-bottom: 4px; }
+  #resTrazado svg { width: 100%; height: 260px; color: var(--accent); display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  #resTrazado .leyenda { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  #resPerfil { margin: 0 0 16px; }
+  #resPerfil .titulo { color: var(--muted); font-size: 14px; margin-bottom: 4px; }
+  #resPerfil svg { width: 100%; height: 120px; color: var(--accent); display: block; }
+  #resPerfil .ejes { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+  #resTitulo { font-size: 30px; margin: 0 0 4px; }
+  #resFecha, #resTrayecto { color: var(--muted); font-size: 16px; }
+  #resTrayecto { color: var(--ink); font-weight: 600; margin-top: 2px; }
+  #resGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 18px 0; }
+  #resGrid .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+  #resGrid .stat b { display: block; font-size: 34px; line-height: 1.1; }
+  #resGrid .stat span { color: var(--muted); font-size: 14px; }
+  #resBotones { display: flex; gap: 10px; flex-wrap: wrap; }
+  #resBotones button { padding: 12px 20px; font-size: 16px; }
+  #resBotones button.sec { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  #resAviso { color: var(--muted); font-size: 14px; margin-top: 10px; min-height: 1.2em; }
+  @media (max-width: 760px) { #resGrid .stat b { font-size: 26px; } #resTitulo { font-size: 24px; } }
+  #orient { position: absolute; left: 10px; bottom: calc(var(--hudH, 0px) + 12px); z-index: 1055; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 110px); }
+  #orient[hidden] { display: none; }
+  #orient button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 1px 6px rgba(0,0,0,.3); padding: 8px 12px; font-size: 15px; min-width: 42px; }
+  #orientFlecha { display: inline-block; transition: transform .4s; }
+  #mapa.rumbo { pointer-events: none; transition: transform .6s linear; }
+  body.orient-rumbo .leaflet-control-container { display: none; }
+  #atrib { position: absolute; right: 4px; bottom: calc(var(--hudH, 0px) + 2px); z-index: 1055; font-size: 10px; background: rgba(255,255,255,.78); color: #333; padding: 1px 5px; border-radius: 4px; max-width: 70%; }
+  #atrib[hidden] { display: none; }
+  .contra { display: inline-block; rotate: var(--contra, 0deg); }
+  .radar-icono span, .ruta-punto span, .pegmarca svg, .cam-icono span { rotate: var(--contra, 0deg); }
+  button.sec2 { background: transparent; color: var(--ink); border: 1px solid var(--line); padding: 6px 10px; font-size: 13px; margin: 3px 3px 3px 0; }
+  #rutaPasos { padding-left: 20px; font-size: 13px; max-height: 220px; overflow-y: auto; margin: 4px 0; }
+  .ruta-punto { background: none; border: 0; }
+  .ruta-punto span { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-weight: 700; border: 2px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,.5); }
+  .curva-n { display: inline-block; min-width: 1.6em; text-align: center; border-radius: 6px; padding: 0 6px; font-weight: 800; color: #111; }
+  .curva-n.n1, .curva-n.n2 { background: #ef4444; color: #fff; }
+  .curva-n.n3 { background: #f97316; }
+  .curva-n.n4 { background: #facc15; }
+  .curva-n.n5 { background: #a3e635; }
+  .curva-n.n6 { background: #86efac; }
+  #rutaParadas { padding-left: 20px; font-size: 13px; margin: 4px 0; }
+  #guia { position: absolute; right: 10px; bottom: calc(var(--hudH, 0px) + 12px); z-index: 1060; background: #1d4ed8; color: #fff; border-radius: 12px; padding: 4px 10px 6px; display: flex; flex-direction: column; align-items: center; min-width: 62px; box-shadow: 0 2px 10px rgba(0,0,0,.4); border: 2px solid rgba(255,255,255,.85); }
+  #guia[hidden] { display: none; }
+  #guiaIcono { font-size: 30px; line-height: 1.1; }
+  #guiaDist { font-size: 15px; }
+  body.guiando .leaflet-bottom.leaflet-right { margin-bottom: 78px; }
+  #curvaBox { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1060; display: flex; gap: 8px; }
+  #curvaBox[hidden] { display: none; }
+  .curva-tarjeta { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 12px; border: 2px solid rgba(255,255,255,.9); box-shadow: 0 2px 8px rgba(0,0,0,.45); color: #fff; background: #475569; }
+  .curva-tarjeta b { font-size: 32px; line-height: 1; }
+  .curva-tarjeta svg { width: 36px; height: 36px; }
+  .curva-tarjeta.n1, .curva-tarjeta.n2 { background: #dc2626; }
+  .curva-tarjeta.n3 { background: #f97316; }
+  .curva-tarjeta.n4 { background: #eab308; color: #111; }
+  .curva-tarjeta.n5 { background: #84cc16; color: #111; }
+  .curva-tarjeta.n6 { background: #22c55e; color: #111; }
+  body.sinbuscador header { position: absolute; top: 0; left: 0; z-index: 1100; background: transparent; border: 0; padding: calc(8px + env(safe-area-inset-top)) 8px 8px; }
+  body.sinbuscador #buscar, body.sinbuscador header h1 { display: none; }
+  body.sinbuscador #btnMenu { box-shadow: 0 1px 8px rgba(0,0,0,.45); }
+  body.sinbuscador #curvaBox { top: calc(4px + env(safe-area-inset-top)); }
+  .cam-icono { background: none; border: 0; }
+  .cam-icono span { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; background: #0f766e; font-size: 14px; border: 2px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,.55); }
+  #camPanel { position: absolute; right: 10px; top: 10px; width: min(500px, calc(100% - 20px)); z-index: 1070; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,.45); padding: 8px; }
+  #camPanel[hidden] { display: none; }
+  #camBarra { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+  #camBarra b { font-size: 15px; }
+  #camBarra button { padding: 4px 10px; }
+  #camImg { display: block; width: 100%; min-width: 320px; height: auto; min-height: 200px; background: #111; border-radius: 8px; object-fit: contain; }
+  #camMsg { padding: 14px; font-size: 14px; color: var(--ink); background: var(--bg); border-radius: 8px; }
+  #camPie { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+  #camPie button { padding: 7px 12px; font-size: 13px; }
+  #camPanel small { color: var(--muted); font-size: 12px; }
+  @media (max-width: 760px) { #camPanel { top: auto; right: 6px; left: 6px; width: auto; bottom: calc(var(--hudH, 0px) + 6px); } #camImg { min-width: 0; } }
+  .radar-icono { background: none; border: 0; }
+  .radar-mio span { background: #2563eb !important; }
+  .radar-icono span { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #dc2626; color: #fff; font-weight: 700; font-size: 11px; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,.5); }
+  @media (max-width: 760px) {
+    header h1 { display: none; }
+    #buscar { min-width: 0; }
+    #mapa.conSV { right: 0; bottom: calc(45% + var(--hudH, 0px)); }
+    #sv { top: auto; left: 0; right: 0; bottom: var(--hudH, 0px); width: auto; height: 45%; border-left: 0; border-top: 1px solid var(--line); }
+    #hud { grid-template-columns: auto 1fr; }
+    #hudRumbo { grid-column: 1 / -1; }
+    #hudKmh { font-size: 40px; }
+  }
+</style>
+<style>
+  /* Versión móvil, pensada para usarse en vertical */
+  html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  header { padding-top: calc(8px + env(safe-area-inset-top)); }
+  #btnMenu { padding: 10px 15px; font-size: 20px; }
+  .leaflet-control-zoom { display: none; }
+  #hud { padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); grid-template-columns: auto 1fr; gap: 4px 12px; max-height: 46vh; overflow-y: auto; }
+  #hudRumbo { grid-column: 1 / -1; }
+  #hudKmh { font-size: 48px; }
+  #hudRuta { font-size: 22px; }
+  #hudMuni { font-size: 15px; }
+  #hudBotones { gap: 8px; }
+  #hud button { padding: 9px 12px; font-size: 14px; flex: 1 1 auto; }
+  #orient button { padding: 10px 12px; font-size: 16px; }
+  .curva-tarjeta b { font-size: 30px; }
+  aside button, aside select, aside input { min-height: 40px; }
+  #resumen { padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); }
+  #resBotones button { flex: 1 1 100%; }
+</style>
+</head>
+<body>
+<header>
+  <button type="button" id="btnMenu" aria-label="Abrir capas y ajustes">☰</button>
+  <h1>Mapa de España</h1>
+  <form id="buscar">
+    <input id="q" type="search" placeholder="Busca un pueblo, calle o carretera" aria-label="Buscar lugar">
+    <button type="submit">Buscar</button>
+  </form>
+</header>
+<main>
+  <aside>
+    <h2>Mapa base</h2>
+    <select id="base" aria-label="Mapa base">
+      <option value="ignbase">Callejero IGN (trae límites dibujados)</option>
+      <option value="esri">Callejero Esri</option>
+      <option value="osm">OpenStreetMap</option>
+      <option value="pnoa">Satélite (PNOA)</option>
+      <option value="topo">Topográfico (OpenTopoMap)</option>
+      <option value="mdt">Altitudes en color (MDT del IGN)</option>
+      <option value="hist80">Fotos aéreas 1981-86 (IGN)</option>
+      <option value="ams">Fotos aéreas 1956-57 (IGN)</option>
+    </select>
+
+    <h2>Relieve</h2>
+    <label class="op"><input type="checkbox" id="sombra"> Sombreado de relieve</label>
+    <input type="range" id="sombraOp" min="0.2" max="1" step="0.05" value="0.6" aria-label="Intensidad del relieve">
+    <p class="nota">Se superpone al mapa base. Funciona mejor con el callejero y el satélite.</p>
+
+    <h2>Capas</h2>
+    <label class="op"><input type="checkbox" id="munis" checked> Límites municipales y concellos</label>
+    <input type="range" id="munisCon" min="0" max="1" step="0.05" value="0.4" aria-label="Grosor de los límites municipales">
+    <p class="nota">Líneas de municipios del IGN (desde el zoom 11); en Galicia, los concellos van en verde oscuro (desde el zoom 9). Todo se apaga con esta casilla. La barra cambia su grosor y su oscuridad. El callejero del IGN trae sus propios límites dibujados y esos no se pueden quitar: con el satélite o las fotos aéreas solo se ven los de esta capa.</p>
+    <label class="op"><input type="checkbox" id="parro" checked> Parroquias (solo Galicia)</label>
+    <input type="range" id="parroOp" min="0.2" max="1" step="0.05" value="1" aria-label="Intensidad de las parroquias">
+    <p class="nota">Capa oficial de la Xunta de Galicia. Se ve desde el zoom 11. El nombre de cada parroquia aparece escrito una vez dentro de ella. Las líneas en verde oscuro (casilla de abajo) separan concellos.</p>
+    <label class="op"><input type="checkbox" id="kms" checked> Puntos kilométricos</label>
+    <p class="nota">Los kilómetros aparecen al acercarte (zoom 13 o más). Pasa el ratón cerca de una carretera para ver su kilómetro abajo.</p>
+
+    <h2>Pantalla</h2>
+    <label class="op"><input type="checkbox" id="ocultarBuscador"> Ocultar la barra de búsqueda</label>
+
+    <h2>Ruta de A a B</h2>
+    <select id="rutaModo" aria-label="Medio de transporte">
+      <option value="coche">En coche</option>
+      <option value="pie">A pie</option>
+      <option value="bici">En bici</option>
+    </select>
+    <p class="nota" style="margin-top:8px"><b>A (origen):</b> <span id="rutaATxt">tu ubicación</span><br>
+      <button type="button" id="rutaElegirA" class="sec2">Elegir A en el mapa</button><button type="button" id="rutaMiUbic" class="sec2">Usar mi ubicación</button></p>
+    <p class="nota"><b>B (destino):</b> <span id="rutaBTxt">sin elegir</span></p>
+    <input id="rutaBuscar" type="search" placeholder="Busca el destino (pueblo, calle…)" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font-size:14px">
+    <div><button type="button" id="rutaBuscarBtn" class="sec2">Buscar destino</button><button type="button" id="rutaElegirB" class="sec2">Elegir B en el mapa</button></div>
+    <p class="nota"><b>Paradas</b> (la ruta pasará por ellas, en este orden):</p>
+    <ol id="rutaParadas"></ol>
+    <input id="rutaParadaBuscar" type="search" placeholder="Busca una parada (pueblo, calle…)" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font-size:14px">
+    <div><button type="button" id="rutaParadaBtn" class="sec2">Añadir parada</button><button type="button" id="rutaParadaMapa" class="sec2">Añadir parada en el mapa</button></div>
+    <div style="margin-top:6px"><button type="button" id="rutaCalcular">Calcular ruta</button> <button type="button" id="rutaIniciar">Iniciar guiado</button> <button type="button" id="rutaBorrar" class="sec2">Quitar</button></div>
+    <p class="nota"><b>Rutas guardadas</b></p>
+    <select id="rutaPreset" aria-label="Rutas guardadas"><option value="">(ninguna guardada)</option></select>
+    <div><button type="button" id="presetCargar" class="sec2">Cargar</button><button type="button" id="presetIniciar" class="sec2">Cargar e iniciar</button><button type="button" id="presetBorrar" class="sec2">Borrar</button></div>
+    <input id="presetNombre" type="text" placeholder="Nombre para guardar la ruta actual" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font-size:14px">
+    <button type="button" id="presetGuardar" class="sec2">Guardar ruta actual</button>
+    <label class="op"><input type="checkbox" id="rutaVoz" checked> Indicaciones habladas de la ruta</label>
+    <label class="op"><input type="checkbox" id="curvasVoz" checked> Avisos hablados de curvas (1 horquilla · 6 a fondo)</label>
+    <label for="curvasMax" class="nota">Avisar de las curvas hasta el número:</label>
+    <select id="curvasMax" aria-label="Avisar de curvas hasta el número">
+      <option value="3">3 (solo las más cerradas)</option>
+      <option value="4">4</option>
+      <option value="5" selected>5</option>
+      <option value="6">6 (todas)</option>
+    </select>
+    <label class="op"><input type="checkbox" id="curvasLibre"> Avisos de curvas sin ruta (prueba)</label>
+    <label class="op"><input type="checkbox" id="curvasCaja" checked> Mostrar el recuadro de curvas arriba</label>
+    <p class="nota" id="rutaMsg"></p>
+    <div id="rutaResumen" class="nota"></div>
+    <ol id="rutaPasos"></ol>
+
+    <h2>Conducir o andar</h2>
+    <select id="modo" aria-label="Modo de ruta">
+      <option value="">Desactivado</option>
+      <option value="conducir">Conducir</option>
+      <option value="andar">Andar</option>
+    </select>
+    <p class="nota">Muestra la velocidad y el rumbo, y el mapa te va siguiendo. Necesita tu ubicación y, para ser fiable, un equipo con GPS.</p>
+
+    <h2>Radares (tus archivos)</h2>
+    <label for="radarArchivo" class="nota">Tus propios radares: carga un archivo tuyo (GPX, KML, CSV, GeoJSON o JSON). Cada archivo se suma a los anteriores</label>
+    <input type="file" id="radarArchivo" accept=".gpx,.kml,.csv,.json,.geojson,.txt,.js" style="width:100%;font-size:13px">
+    <button type="button" id="radarQuitar" style="margin-top:6px;background:transparent;color:var(--ink);border:1px solid var(--line)">Quitar mis radares</button>
+    <p class="nota" id="radarMsg"></p>
+
+    <h2>Cámaras de tráfico (DGT)</h2>
+    <label class="op"><input type="checkbox" id="camaras"> Mostrar cámaras</label>
+    <p class="nota">Cámaras de la DGT en toda España salvo País Vasco y Cataluña. Se ven desde el zoom 9. Toca una para verla pequeña aquí o en una pestaña nueva en grande. <a href="https://etraffic.dgt.es/etrafficWEB/" target="_blank" rel="noopener">Abrir el visor oficial de la DGT</a>.</p>
+    <label for="camArchivo" class="nota">Si el listado no carga, descarga el XML de cámaras del <a href="https://nap.dgt.es/en/dataset/camaras-dgt-datex2-v3-7/resource/31f5727a-bbfe-4aa8-b1dc-d2fce1302e69" target="_blank" rel="noopener">Punto de Acceso Nacional</a> y cárgalo aquí:</label>
+    <input type="file" id="camArchivo" accept=".xml,.txt" style="width:100%;font-size:13px">
+    <p class="nota" id="camMsgMenu"></p>
+
+    <h2>Viaje y tramos</h2>
+    <label for="tramoLimite" class="nota">Límite del tramo en km/h (opcional)</label>
+    <input id="tramoLimite" type="number" min="10" max="200" placeholder="por ejemplo 90" value="100" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font-size:14px;margin:4px 0 6px">
+    <label class="op"><input type="checkbox" id="pitMedia" checked> Pitido si la media del tramo supera el límite</label>
+    <label class="op"><input type="checkbox" id="pitActual" checked> Pitido si tu velocidad actual supera el límite</label>
+    <button type="button" id="pitProbar" class="sec" style="margin:4px 0 8px;background:transparent;color:var(--ink);border:1px solid var(--line)">Probar pitido</button>
+    <p class="nota">Con «Conducir o andar» activo, el panel de abajo tiene los botones «Iniciar viaje» (tiempo, velocidad máxima y media) e «Iniciar tramo» (velocidad media desde que lo pulsas hasta que lo vuelves a pulsar).</p>
+
+    <h2>Street View</h2>
+    <p class="nota">Arrastra el muñeco (abajo a la derecha del mapa) hasta una calle o carretera. El botón de la mira, encima del muñeco, muestra dónde estás con un punto azul. También puedes pulsarlo y después hacer clic en el mapa.</p>
+    <label for="svkey" class="nota">Clave de Google (Maps Embed API)</label>
+    <input id="svkey" type="password" placeholder="Pega aquí tu clave" autocomplete="off">
+    <button type="button" id="svguardar">Guardar clave</button>
+    <p class="nota" id="svestado">Sin clave, el muñeco abre Street View en una pestaña nueva.</p>
+
+    <h2>Clic en el mapa</h2>
+    <p class="nota">Muestra municipio, provincia y coordenadas del punto. En el cuadro que aparece, «Abrir en Street View» abre ese lugar en Google Street View en una pestaña nueva.</p>
+  </aside>
+  <div id="mapa"></div>
+  <div id="guia" hidden aria-live="polite"><div id="guiaIcono" aria-hidden="true">↑</div><b id="guiaDist"></b><span id="guiaInst" hidden></span><span id="guiaResto" hidden></span></div>
+  <div id="curvaBox" hidden aria-live="polite"></div>
+  <div id="camPanel" hidden role="dialog" aria-label="Cámara de tráfico">
+    <div id="camBarra"><b id="camTitulo"></b><button type="button" id="camCerrar" aria-label="Cerrar la cámara">✕</button></div>
+    <div id="camCuerpo"><img id="camImg" alt="Imagen de la cámara de tráfico"><div id="camMsg" hidden></div></div>
+    <div id="camPie"><button type="button" id="camRefrescar">Actualizar</button><button type="button" id="camGrande">Abrir en pestaña nueva (grande)</button></div>
+    <small>Imagen de la DGT. Se actualiza sola cada minuto.</small>
+  </div>
+  <div id="orient" hidden>
+    <button type="button" id="orientBtn" aria-label="Orientación del mapa"><span id="orientFlecha">↑</span> <span id="orientTxt">Norte arriba</span></button>
+    <button type="button" id="zoomMas" aria-label="Acercar">+</button>
+    <button type="button" id="zoomMenos" aria-label="Alejar">−</button>
+    <button type="button" id="guiaMuteNav" aria-label="Silenciar o activar la voz de la ruta">➜🔊</button>
+    <button type="button" id="guiaMuteCur" aria-label="Silenciar o activar la voz de las curvas">↰🔊</button>
+    <button type="button" id="guiaParar" aria-label="Parar el guiado" hidden>■</button>
+  </div>
+  <div id="atrib" hidden></div>
+  <div id="hud" hidden aria-live="off">
+    <div id="hudVel"><span id="hudKmh">--</span><small>km/h</small></div>
+    <div id="hudInfo">
+      <div id="hudRuta"></div>
+      <div id="hudSentido"></div>
+      <div id="hudMuni"></div>
+      <div id="hudExtra"></div>
+      <div id="hudSol"></div>
+      <div id="hudViaje"></div>
+      <div id="hudTramo"></div>
+    </div>
+    <div id="hudRumbo">
+      <svg id="hudFlecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z" fill="currentColor"/></svg>
+      <div><b id="hudCard">--</b> <small id="hudGrados"></small></div>
+    </div>
+    <div id="hudBotones">
+      <button type="button" id="btnViaje">Iniciar viaje</button>
+      <button type="button" id="btnPausa" hidden>Pausar viaje</button>
+      <button type="button" id="btnTramo">Iniciar tramo</button>
+      <button type="button" id="hudSeguir">Siguiendo</button>
+      <button type="button" id="hudCerrar" class="sec">Salir</button>
+    </div>
+  </div>
+  <div id="resumen" hidden role="dialog" aria-modal="true" aria-labelledby="resTitulo">
+    <div id="resCaja">
+      <h2 id="resTitulo">Viaje terminado</h2>
+      <div id="resFecha"></div>
+      <div id="resTrayecto"></div>
+      <div id="resGrid"></div>
+      <div id="resTrazado"></div>
+      <div id="resPerfil"></div>
+      <div id="resBotones">
+        <button type="button" id="resWasap">Enviar por WhatsApp</button>
+        <button type="button" id="resCopiar" class="sec">Copiar</button>
+        <button type="button" id="resCerrar" class="sec">Cerrar</button>
+      </div>
+      <div id="resAviso"></div>
+    </div>
+  </div>
+  <section id="sv" hidden aria-label="Street View">
+    <div id="svbar"><span>Street View</span><a id="svlink" href="#" target="_blank" rel="noopener">Abrir en pestaña nueva</a><button type="button" id="svcerrar" aria-label="Cerrar Street View">Cerrar</button></div>
+    <div id="svnota" hidden></div>
+    <iframe id="svframe" title="Google Street View" allowfullscreen referrerpolicy="origin-when-cross-origin" hidden></iframe>
+    <div id="svmsg" hidden></div>
+  </section>
+</main>
+<div id="estado">
+  <span id="coord">Mueve el ratón por el mapa</span>
+  <span id="pk"></span>
+  <span id="lugar"></span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<div id="fallo" style="display:none;position:fixed;inset:0;z-index:5000;background:var(--bg);color:var(--ink);padding:40px;font-size:16px;line-height:1.5">
+  <h2>No se pudo cargar el mapa</h2>
+  <p>La página no ha podido descargar la librería de mapas (Leaflet). Comprueba que tienes internet y que abres este archivo con doble clic en Chrome, Edge o Firefox (no desde una vista previa).</p>
+</div>
+<script>
+if (typeof L === 'undefined') { document.getElementById('fallo').style.display = 'block'; }
+</script>
+<script>
+if (typeof L !== 'undefined') (function () {
+  var mapa = L.map('mapa', { zoomControl: true }).setView([40.2, -3.7], 6);
+  mapa.attributionControl.setPrefix(false);
+
+  var atrIGN = '© Instituto Geográfico Nacional de España (IGN)';
+  var bases = {
+    esri: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 19, attribution: 'Callejero © Esri' }),
+    hist80: L.tileLayer.wms('https://www.ign.es/wms/pnoa-historico', { layers: 'Nacional_1981-1986', format: 'image/jpeg', version: '1.3.0', maxZoom: 19, attribution: 'Vuelo Nacional 1981-86 © ' + atrIGN }),
+    ams: L.tileLayer.wms('https://www.ign.es/wms/pnoa-historico', { layers: 'AMS_1956-1957', format: 'image/jpeg', version: '1.3.0', maxZoom: 19, attribution: 'Vuelo Americano 1956-57 © ' + atrIGN }),
+    ignbase: L.tileLayer('https://www.ign.es/wmts/ign-base?request=getTile&layer=IGNBaseTodo&TileMatrixSet=GoogleMapsCompatible&TileMatrix={z}&TileCol={x}&TileRow={y}&format=image/jpeg',
+      { maxZoom: 19, attribution: atrIGN }),
+    osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { maxZoom: 19, attribution: '© colaboradores de OpenStreetMap' }),
+    pnoa: L.tileLayer('https://www.ign.es/wmts/pnoa-ma?request=getTile&layer=OI.OrthoimageCoverage&TileMatrixSet=GoogleMapsCompatible&TileMatrix={z}&TileCol={x}&TileRow={y}&format=image/jpeg',
+      { maxZoom: 19, attribution: 'PNOA © ' + atrIGN }),
+    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      { maxZoom: 17, subdomains: 'abc', attribution: '© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)' }),
+    mdt: L.tileLayer.wms('https://servicios.idee.es/wms-inspire/mdt', {
+      layers: 'EL.GridCoverage', format: 'image/png', transparent: false, version: '1.3.0',
+      attribution: 'MDT © ' + atrIGN })
+  };
+  var baseActual = bases.ignbase.addTo(mapa);
+  mapa.invalidateSize();
+  window.addEventListener('resize', function () { mapa.invalidateSize(); });
+  setTimeout(function () { mapa.invalidateSize(); }, 300);
+
+  var sombra = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    { maxZoom: 19, maxNativeZoom: 16, opacity: 0.6, attribution: 'Relieve © Esri' });
+  var sombraOn = false;
+  try { sombraOn = localStorage.getItem('sombra') === '1'; } catch (err) {}
+  if (sombraOn) sombra.addTo(mapa);
+  document.getElementById('sombra').checked = sombraOn;
+
+
+  // Parroquias de Galicia (IDEG, Xunta de Galicia): se piden los polígonos y se dibujan aquí.
+  var PARRO_URL = 'https://ideg.xunta.gal/servizos/rest/services/LimitesAdministrativos/LimitesAdministrativos/MapServer';
+  var GAL_BOUNDS = L.latLngBounds([[41.78, -9.35], [43.85, -6.70]]);
+  var PARRO_ZOOM = 11;
+  var parroPane = mapa.createPane('parroPane');
+  parroPane.style.zIndex = 450;
+  var parroGrupo = L.layerGroup().addTo(mapa);
+  var parroCarga = null, parroToken = 0;
+
+  function dibujarParroquias(feats, z) {
+    parroGrupo.clearLayers();
+    var gj = { type: 'FeatureCollection', features: feats };
+    // Borde blanco por debajo para que la línea se vea sobre cualquier mapa
+    L.geoJSON(gj, { pane: 'parroPane', interactive: false,
+      style: { color: '#ffffff', weight: 5, opacity: 0.9, fill: false, lineJoin: 'round' } }).addTo(parroGrupo);
+    var etiquetar = feats.length <= 1200;
+    var clase = 'parro-etq' + (z < 13 ? ' parro-peq' : '');
+    L.geoJSON(gj, {
+      pane: 'parroPane',
+      style: { color: '#a1005a', weight: 2.5, opacity: 1, fill: true, fillOpacity: 0, lineJoin: 'round' },
+      onEachFeature: function (f, l) {
+        var nombre = (f.properties && f.properties.PARROQUIA) || '';
+        if (!nombre) return;
+        if (etiquetar) {
+          L.circleMarker(l.getBounds().getCenter(), { radius: 0, opacity: 0, fillOpacity: 0, interactive: false, pane: 'parroPane' })
+            .bindTooltip(ctr(nombre), { permanent: true, direction: 'center', className: clase }).addTo(parroGrupo);
+        } else {
+          l.bindTooltip(ctr(nombre), { sticky: true });
+        }
+      }
+    }).addTo(parroGrupo);
+  }
+
+  async function pedirPoligonos(capa, campo, bbox, offset) {
+    var out = [];
+    for (var pag = 0; pag < 3; pag++) {
+      var url = PARRO_URL + '/' + capa + '/query?f=geojson&where=1%3D1&geometry=' + bbox.map(function (n) { return n.toFixed(5); }).join(',') +
+        '&geometryType=esriGeometryEnvelope&inSR=4326&outSR=4326&spatialRel=esriSpatialRelIntersects&outFields=' + campo +
+        '&returnGeometry=true&geometryPrecision=5&maxAllowableOffset=' + offset + '&resultRecordCount=1000&resultOffset=' + (pag * 1000);
+      var r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var d = await r.json();
+      if (d.error) throw new Error('servicio: ' + ((d.error && d.error.message) || ''));
+      var fs = d.features || [];
+      out = out.concat(fs);
+      if (fs.length < 1000) break;
+    }
+    return out;
+  }
+
+  async function cargarParroquias() {
+    if (!mapa.hasLayer(parroGrupo)) return;
+    var z = mapa.getZoom(), vista = mapa.getBounds();
+    if (z < PARRO_ZOOM || !vista.intersects(GAL_BOUNDS)) { parroGrupo.clearLayers(); parroCarga = null; return; }
+    if (parroCarga && parroCarga.zoom === z && parroCarga.bounds.contains(vista)) return;
+    var token = ++parroToken;
+    var area = vista.pad(0.25), sw = area.getSouthWest(), ne = area.getNorthEast();
+    var bbox = [Math.max(sw.lng, GAL_BOUNDS.getWest()), Math.max(sw.lat, GAL_BOUNDS.getSouth()),
+                Math.min(ne.lng, GAL_BOUNDS.getEast()), Math.min(ne.lat, GAL_BOUNDS.getNorth())];
+    var offset = (360 / (256 * Math.pow(2, z)) * 1.2).toFixed(7);   // simplifica el trazado según el zoom
+    var feats;
+    try {
+      feats = await pedirPoligonos(20, 'PARROQUIA', bbox, offset);
+    } catch (err) {
+      if (token === parroToken) document.getElementById('lugar').innerHTML = '<span class="aviso">No se pudieron cargar las parroquias</span>';
+      return;
+    }
+    if (token !== parroToken) return;   // el mapa se movió mientras cargaba
+    dibujarParroquias(feats, z);
+    parroCarga = { zoom: z, bounds: area };
+  }
+  mapa.on('moveend', cargarParroquias);
+
+  // Concellos de Galicia en verde oscuro (capa propia, encima de las parroquias)
+  var CONC_ZOOM = 12;               // desde aquí se piden los concellos con todo el detalle; por debajo, todos a la vez
+  var concPane = mapa.createPane('concPane');
+  concPane.style.zIndex = 455;
+  var concGrupo = L.layerGroup().addTo(mapa);
+  var concCarga = null, concToken = 0, concLinea = null;
+  var concGrupoTodos = L.layerGroup().addTo(mapa), concTodosCapa = null, concTodosEstado = '';
+  var rendConc = L.canvas({ pane: 'concPane', padding: 0.3 });     // dibujo rápido para muchas líneas
+
+  // Todos los concellos de Galicia en una sola petición (simplificados), para verlos todos juntos
+  async function traerTodosConcellos() {
+    var capas = [12, 16, 13];
+    for (var i = 0; i < capas.length; i++) {
+      try {
+        var ctl = new AbortController(), to = setTimeout(function () { ctl.abort(); }, 45000);
+        var r = await fetch(PARRO_URL + '/' + capas[i] + '/query?f=geojson&where=1%3D1&outFields=OBJECTID&returnGeometry=true&outSR=4326&geometryPrecision=5&maxAllowableOffset=0.0012&resultRecordCount=1000', { signal: ctl.signal });
+        clearTimeout(to);
+        if (!r.ok) continue;
+        var d = await r.json();
+        if (d && d.features && d.features.length > 50) return d.features;       // Galicia tiene 313 concellos
+      } catch (err) {}
+    }
+    return null;
+  }
+  async function vistaGeneralConcellos() {
+    if (!mapa.hasLayer(concGrupoTodos)) return;
+    var z = mapa.getZoom(), mostrar = mapa.getBounds().intersects(GAL_BOUNDS) && z >= 7 && z < CONC_ZOOM;
+    if (!mostrar) { if (concTodosCapa && concGrupoTodos.hasLayer(concTodosCapa)) concGrupoTodos.removeLayer(concTodosCapa); return; }
+    if (!concTodosCapa) {
+      if (concTodosEstado === 'cargando') return;
+      concTodosEstado = 'cargando';
+      document.getElementById('lugar').textContent = 'Cargando todos los concellos de Galicia…';
+      var fs = await traerTodosConcellos();
+      concTodosEstado = '';
+      if (!fs) { document.getElementById('lugar').innerHTML = '<span class="aviso">No se pudieron cargar todos los concellos de Galicia</span>'; return; }
+      concTodosCapa = L.geoJSON({ type: 'FeatureCollection', features: fs }, { pane: 'concPane', renderer: rendConc, interactive: false,
+        style: { color: '#0b5d2a', weight: 3, opacity: 1, fill: false, lineJoin: 'round' } });
+      estiloMunis();
+      document.getElementById('lugar').textContent = '';
+    }
+    if (mapa.getZoom() < CONC_ZOOM && mapa.hasLayer(concGrupoTodos) && !concGrupoTodos.hasLayer(concTodosCapa)) concTodosCapa.addTo(concGrupoTodos);
+  }
+
+  async function cargarConcellos() {
+    vistaGeneralConcellos();
+    if (!mapa.hasLayer(concGrupo)) return;
+    var z = mapa.getZoom(), vista = mapa.getBounds();
+    if (z < CONC_ZOOM || !vista.intersects(GAL_BOUNDS)) { concGrupo.clearLayers(); concCarga = null; return; }
+    if (concCarga && concCarga.zoom === z && concCarga.bounds.contains(vista)) return;
+    var token = ++concToken;
+    var area = vista.pad(0.25), sw = area.getSouthWest(), ne = area.getNorthEast();
+    var bbox = [Math.max(sw.lng, GAL_BOUNDS.getWest()), Math.max(sw.lat, GAL_BOUNDS.getSouth()),
+                Math.min(ne.lng, GAL_BOUNDS.getEast()), Math.min(ne.lat, GAL_BOUNDS.getNorth())];
+    var offset = (360 / (256 * Math.pow(2, z)) * 1.2).toFixed(7);
+    var feats = null, motivo = '';
+    var capas = [12, 16, 13, 14];                  // la capa 12 es la más detallada; las otras son de respaldo
+    for (var i = 0; i < capas.length && feats === null; i++) {
+      try { feats = await pedirPoligonos(capas[i], 'OBJECTID', bbox, offset); }
+      catch (err) { motivo = (err && err.message) || 'error'; feats = null; }
+    }
+    if (token !== concToken) return;
+    if (feats === null) {
+      document.getElementById('lugar').innerHTML = '<span class="aviso">No se pudieron cargar los concellos (' + motivo + ')</span>';
+      return;
+    }
+    concGrupo.clearLayers();
+    concLinea = L.geoJSON({ type: 'FeatureCollection', features: feats }, { pane: 'concPane', renderer: rendConc, interactive: false,
+      style: { color: '#0b5d2a', weight: 3.5, opacity: 1, fill: false, lineJoin: 'round' } }).addTo(concGrupo);
+    estiloMunis();
+    concCarga = { zoom: z, bounds: area };
+  }
+  mapa.on('moveend', cargarConcellos);
+
+  // Límites municipales (IGN, vectores): se dibujan aquí para poder cambiar su grosor y apagarlos
+  var MUNI_ZOOM = 11;
+  var muniPane = mapa.createPane('muniPane');
+  muniPane.style.zIndex = 440;
+  var rendMuni = L.canvas({ pane: 'muniPane', padding: 0.3 });
+  var muniGrupo = L.layerGroup().addTo(mapa), muniCarga = null, muniToken = 0, muniCasing = null, muniLinea = null;
+
+  function estiloMunis() {
+    var t = parseFloat(document.getElementById('munisCon').value), w = 1 + 4.5 * t;
+    if (muniCasing) muniCasing.setStyle({ weight: w + 3, opacity: 0.35 + 0.4 * t });
+    if (concLinea) concLinea.setStyle({ weight: 2 + 3 * t });
+    if (concTodosCapa) concTodosCapa.setStyle({ weight: 1.5 + 2.5 * t });
+    if (muniLinea) muniLinea.setStyle({ weight: w, opacity: 0.55 + 0.45 * t, color: t > 0.5 ? '#000000' : '#222222' });
+  }
+
+  var muniIntentos = 0, muniTimer = null, munisWms = null;
+  async function traerLimites(host, bbox) {
+    var out = [];
+    for (var pag = 0; pag < 8; pag++) {                    // hasta 8.000 líneas por vista
+      var ctl = new AbortController(), to = setTimeout(function () { ctl.abort(); }, 8000);
+      var r = await fetch(host + '/collections/administrativeboundary/items?f=json&limit=1000&offset=' + (pag * 1000) + '&bbox=' + bbox, { signal: ctl.signal });
+      clearTimeout(to);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var d = await r.json(), fs = d.features || [];
+      out = out.concat(fs);
+      if (fs.length < 1000) break;
+    }
+    return out;
+  }
+  // Último recurso, válido en toda España: límites de los municipios (nivel 8) de OpenStreetMap
+  async function traerLimitesOSM(area) {
+    var q = '[out:json][timeout:25];relation["boundary"="administrative"]["admin_level"="8"](' + area.getSouth().toFixed(5) + ',' + area.getWest().toFixed(5) + ',' + area.getNorth().toFixed(5) + ',' + area.getEast().toFixed(5) + ');out geom;';
+    var d = await consultarOverpass(q, 25000);
+    if (!d) throw new Error('Overpass');
+    var feats = [];
+    d.elements.forEach(function (rel) {
+      (rel.members || []).forEach(function (m) {
+        if (m.type === 'way' && m.geometry && m.geometry.length > 1) {
+          feats.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: m.geometry.map(function (p) { return [p.lon, p.lat]; }) } });
+        }
+      });
+    });
+    return feats;
+  }
+  async function cargarMunisVector() {
+    if (!mapa.hasLayer(muniGrupo)) return;
+    var vista = mapa.getBounds();
+    if (mapa.getZoom() < MUNI_ZOOM) { muniGrupo.clearLayers(); muniCasing = muniLinea = null; muniCarga = null; return; }
+    if (muniCarga && muniCarga.contains(vista)) return;
+    var token = ++muniToken, area = vista.pad(0.15);
+    var bbox = [area.getWest(), area.getSouth(), area.getEast(), area.getNorth()].map(function (n) { return n.toFixed(5); }).join(',');
+    var feats = null, fuentes = ['https://api-features.ign.es'];
+    if (location.protocol !== 'file:') fuentes.push('/ign');              // el propio servidor de la app, sin bloqueos del navegador
+    fuentes.push('https://api-features.idee.es');
+    for (var h = 0; h < fuentes.length && feats === null; h++) {
+      try { var f0 = await traerLimites(fuentes[h], bbox); if (f0.length) feats = f0; } catch (err) { feats = null; }
+      if (token !== muniToken) return;
+    }
+    if (feats === null && mapa.getZoom() >= 12) {                          // último recurso: OpenStreetMap
+      try { var fo = await traerLimitesOSM(area); if (fo.length) feats = fo; } catch (err) { feats = null; }
+      if (token !== muniToken) return;
+    }
+    if (feats === null) {                                        // sin datos: se reintenta solo y, mientras, se usa la imagen del IGN
+      if (!munisWms) munisWms = L.tileLayer.wms('https://www.ign.es/wms-inspire/unidades-administrativas', { layers: 'AU.AdministrativeBoundary', format: 'image/png', transparent: true, version: '1.3.0', attribution: 'Límites © Instituto Geográfico Nacional de España (IGN)' });
+      if (!muniGrupo.hasLayer(munisWms)) munisWms.addTo(muniGrupo);
+      if (muniIntentos < 4) {
+        muniIntentos++; clearTimeout(muniTimer);
+        muniTimer = setTimeout(function () { muniCarga = null; cargarMunisVector(); }, 2500);
+      } else {
+        document.getElementById('lugar').innerHTML = '<span class="aviso">No se pudieron cargar los límites municipales; se muestra la imagen del IGN</span>';
+      }
+      return;
+    }
+    muniIntentos = 0;
+    if (munisWms && muniGrupo.hasLayer(munisWms)) muniGrupo.removeLayer(munisWms);
+    var lineas = feats.filter(function (f) {                       // sin la línea de costa
+      return !/mar[ií]tim/i.test(String((f.properties || {}).type_boundary || ''));
+    });
+    muniCasing = muniLinea = null;
+    muniGrupo.clearLayers();
+    var gj = { type: 'FeatureCollection', features: lineas };
+    muniCasing = L.geoJSON(gj, { pane: 'muniPane', renderer: rendMuni, interactive: false, style: { color: '#ffffff', fill: false, lineJoin: 'round' } }).addTo(muniGrupo);
+    muniLinea = L.geoJSON(gj, { pane: 'muniPane', renderer: rendMuni, interactive: false, style: { color: '#222222', fill: false, lineJoin: 'round' } }).addTo(muniGrupo);
+    estiloMunis();
+    muniCarga = area;
+  }
+  mapa.on('moveend', cargarMunisVector);
+
+
+  // Radares propios: se leen de un archivo del usuario (GPX, KML, CSV o GeoJSON) y se guardan en este equipo
+  var misRadares = L.layerGroup().addTo(mapa);
+  function ctr(t) { return '<span class="contra">' + escHtml(t) + '</span>'; }
+  function escHtml(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function limiteDeTexto(t) {
+    t = String(t || '');
+    var m = t.match(/(\d{2,3})\s*(?:km\/h|kmh)/i) || t.match(/^\D*(\d{2,3})\D*$/);
+    var n = m ? parseInt(m[1], 10) : 0;
+    return n >= 20 && n <= 140 ? String(n) : '';
+  }
+  // Busca en cualquier JSON los objetos que tengan latitud y longitud (por ejemplo, la respuesta de un mapa web)
+  function buscarPuntosJson(nodo, pts, prof) {
+    if (!nodo || typeof nodo !== 'object' || prof > 8) return;
+    if (Array.isArray(nodo)) { nodo.forEach(function (x) { buscarPuntosJson(x, pts, prof + 1); }); return; }
+    var num = function (v) { var n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : NaN; };
+    var primero = function (o, claves) { for (var i = 0; i < claves.length; i++) { if (o[claves[i]] !== undefined && o[claves[i]] !== null) return o[claves[i]]; } return NaN; };
+    var lat = num(primero(nodo, ['lat', 'latitude', 'latitud'])), lon = num(primero(nodo, ['lng', 'lon', 'long', 'longitude', 'longitud']));
+    if (!isNaN(lat) && !isNaN(lon)) {
+      var nom = primero(nodo, ['name', 'title', 'nombre', 'titulo', 'description', 'descripcion', 'desc']);
+      nom = isNaN(nom) && typeof nom === 'string' ? nom.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+      var lim = limiteDeTexto(primero(nodo, ['maxspeed', 'velocidad', 'speed', 'limite']) || nom);
+      pts.push({ lat: lat, lon: lon, nombre: nom, lim: typeof lim === 'string' ? lim : '' });
+      return;
+    }
+    Object.keys(nodo).forEach(function (k) { buscarPuntosJson(nodo[k], pts, prof + 1); });
+  }
+  function leerRadares(txt) {
+    var pts = [], t = txt.trim();
+    if (t.charAt(0) === '{' || t.charAt(0) === '[') {
+      var j = JSON.parse(t);
+      (j.features || []).forEach(function (f) {
+        var c = f.geometry && f.geometry.type === 'Point' ? f.geometry.coordinates : null;
+        if (!c) return;
+        var p = f.properties || {}, nom = p.name || p.nombre || p.Name || p.title || '';
+        pts.push({ lat: c[1], lon: c[0], nombre: nom, lim: limiteDeTexto(p.maxspeed || p.velocidad || p.speed || nom) });
+      });
+      if (!pts.length) buscarPuntosJson(j, pts, 0);
+    } else if (t.charAt(0) === '<') {
+      var x = new DOMParser().parseFromString(t, 'text/xml');
+      Array.prototype.forEach.call(x.getElementsByTagName('wpt'), function (w) {
+        var n = w.getElementsByTagName('name')[0], d = w.getElementsByTagName('desc')[0];
+        var nom = ((n ? n.textContent : '') + ' ' + (d ? d.textContent : '')).trim();
+        pts.push({ lat: parseFloat(w.getAttribute('lat')), lon: parseFloat(w.getAttribute('lon')), nombre: nom, lim: limiteDeTexto(nom) });
+      });
+      Array.prototype.forEach.call(x.getElementsByTagName('Placemark'), function (pm) {
+        var c = pm.getElementsByTagName('coordinates')[0], n = pm.getElementsByTagName('name')[0];
+        if (!c || !pm.getElementsByTagName('Point').length) return;
+        var xy = c.textContent.trim().split(/[,\s]+/), nom = n ? n.textContent : '';
+        pts.push({ lat: parseFloat(xy[1]), lon: parseFloat(xy[0]), nombre: nom, lim: limiteDeTexto(nom) });
+      });
+    } else {
+      var lineas = t.split(/\r?\n/).filter(Boolean);
+      var sep = lineas[0].indexOf(';') >= 0 ? ';' : (lineas[0].indexOf('\t') >= 0 ? '\t' : ',');
+      var cab = lineas[0].split(sep).map(function (h) { return h.trim().toLowerCase().replace(/"/g, ''); });
+      var iLat = cab.findIndex(function (h) { return /^(lat|latitud|latitude|y)$/.test(h); });
+      var iLon = cab.findIndex(function (h) { return /^(lon|lng|long|longitud|longitude|x)$/.test(h); });
+      var iNom = cab.findIndex(function (h) { return /^(name|nombre|descripcion|description|desc)$/.test(h); });
+      var conCab = iLat >= 0 && iLon >= 0;
+      for (var i = conCab ? 1 : 0; i < lineas.length; i++) {
+        var c = lineas[i].split(sep).map(function (h) { return h.trim().replace(/^"|"$/g, ''); });
+        var lat, lon, nom;
+        if (conCab) {
+          lat = parseFloat(c[iLat].replace(',', '.')); lon = parseFloat(c[iLon].replace(',', '.'));
+          nom = iNom >= 0 ? c[iNom] : c.slice(0, 5).join(' ');
+        } else {
+          var a = parseFloat(c[0]), b = parseFloat(c[1]);
+          if (a >= 34 && a <= 45 && b > -20 && b < 6) { lat = a; lon = b; } else { lon = a; lat = b; }   // formato "lon,lat" o "lat,lon"
+          nom = c.slice(2).join(' ');
+        }
+        pts.push({ lat: lat, lon: lon, nombre: nom || '', lim: limiteDeTexto(nom) });
+      }
+    }
+    return pts.filter(function (p) { return isFinite(p.lat) && isFinite(p.lon) && Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180; });
+  }
+  function pintarMisRadares(pts) {
+    misRadares.clearLayers();
+    pts.forEach(function (p) {
+      var mk = pts.length > 1500
+        ? L.circleMarker([p.lat, p.lon], { radius: 6, color: '#fff', weight: 1.5, fillColor: '#2563eb', fillOpacity: 1 })
+        : L.marker([p.lat, p.lon], { icon: L.divIcon({ className: 'radar-icono radar-mio', html: '<span>' + (p.lim || 'R') + '</span>', iconSize: [26, 26] }) });
+      mk.bindPopup('<b>' + escHtml(p.nombre || 'Radar') + '</b>' + (p.lim ? '<br>Límite: ' + p.lim + ' km/h' : '')).addTo(misRadares);
+    });
+  }
+  try { var guardados = localStorage.getItem('misRadares'); if (guardados) pintarMisRadares(JSON.parse(guardados)); } catch (err) {}
+  document.getElementById('radarArchivo').addEventListener('change', function (e) {
+    var f = e.target.files[0], aviso = document.getElementById('radarMsg');
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      try {
+        var pts = leerRadares(String(rd.result));
+        if (!pts.length) { aviso.textContent = 'No he encontrado puntos en ese archivo.'; return; }
+        var previos = [];
+        try { previos = JSON.parse(localStorage.getItem('misRadares') || '[]'); } catch (err) {}
+        var vistos = {}, todos = [];
+        previos.concat(pts).forEach(function (q) {
+          var k = q.lat.toFixed(5) + ',' + q.lon.toFixed(5);
+          if (!vistos[k]) { vistos[k] = 1; todos.push(q); }
+        });
+        pintarMisRadares(todos);
+        var guardado = true;
+        try { localStorage.setItem('misRadares', JSON.stringify(todos)); } catch (err) { guardado = false; }
+        aviso.textContent = pts.length + ' puntos leídos; en total ' + todos.length + ' radares propios' + (guardado ? '. Se quedan guardados en este equipo.' : ' (no caben en la memoria del navegador: tendrás que cargarlos cada vez).');
+      } catch (err) { aviso.textContent = 'No he podido leer ese archivo.'; }
+    };
+    rd.readAsText(f);
+  });
+  document.getElementById('radarQuitar').addEventListener('click', function () {
+    misRadares.clearLayers();
+    try { localStorage.removeItem('misRadares'); } catch (err) {}
+    document.getElementById('radarMsg').textContent = 'Radares propios quitados.';
+  });
+
+
+  // Avisos cuando una capa no carga
+  var nombres = [['Callejero IGN', bases.ignbase], ['OpenStreetMap', bases.osm], ['Satélite PNOA', bases.pnoa],
+                 ['OpenTopoMap', bases.topo], ['MDT IGN', bases.mdt], ['Callejero Esri', bases.esri],
+                 ['Relieve', sombra]];
+  var fallos = {};
+  nombres.forEach(function (n) {
+    n[1].on('tileerror', function () {
+      fallos[n[0]] = true;
+      document.getElementById('lugar').innerHTML = '<span class="aviso">No cargan teselas de: ' + Object.keys(fallos).join(', ') + '</span>';
+    });
+  });
+
+  // ---------- Puntos kilométricos ----------
+  var capaKm = L.layerGroup().addTo(mapa);
+  var hitos = [];          // hitos cargados en la vista actual
+  var cargando = false;
+  var kmCarga = null;
+  var segmentos = [];
+  var pkEl = document.getElementById('pk');
+
+  function cargarKm() {
+    if (!mapa.hasLayer(capaKm)) return;
+    if (mapa.getZoom() < 13) {
+      capaKm.clearLayers(); hitos = []; kmCarga = null;
+      pkEl.innerHTML = '<span class="aviso">Acércate más para ver los kilómetros</span>';
+      return;
+    }
+    var vista = mapa.getBounds();
+    if (kmCarga && kmCarga.zoom === mapa.getZoom() && kmCarga.bounds.contains(vista)) return;
+    if (cargando) return;
+    cargando = true;
+    var b = vista.pad(0.5);
+    var bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map(function (n) { return n.toFixed(5); }).join(',');
+    var url = 'https://api-features.idee.es/collections/markerpost/items?f=json&limit=3000&bbox=' + bbox;
+    fetch(url).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (data) {
+      capaKm.clearLayers(); hitos = [];
+      var conEtiqueta = mapa.getZoom() >= 15;
+      (data.features || []).forEach(function (f) {
+        var p = f.properties || {};
+        // Se descartan los hitos del ferrocarril
+        if (String(p.localid_vial || '').indexOf('FFCC') === 0) return;
+        if (p.numero === null || p.numero === undefined) return;
+        var ll = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
+        var m = L.circleMarker(ll, { radius: 5, color: '#fff', weight: 1.5, fillColor: '#c2410c', fillOpacity: 1 });
+        m.bindTooltip(ctr('km ' + p.numero), { permanent: conEtiqueta, direction: 'right', offset: [6, 0], className: 'km-etq' });
+        m.on('mouseover', function () {
+          refDeVia(p.localid_vial, L.latLng(ll)).then(function (t) { if (t) m.setTooltipContent(ctr(t + ' · km ' + p.numero)); });
+        });
+        m.addTo(capaKm);
+        var fecha = String(p.fecha_alta || '').slice(0, 10);
+        hitos.push({ ll: L.latLng(ll), km: p.numero, via: p.localid_vial, fecha: fecha, serie: p.localid_vial + '|' + fecha });
+      });
+      // Tramos entre hitos consecutivos (km y km+1). Se prefiere emparejar hitos de la misma serie de datos.
+      var porSerie = {}, porVial = {};
+      hitos.forEach(function (h) {
+        (porSerie[h.serie + '|' + h.km] = porSerie[h.serie + '|' + h.km] || []).push(h);
+        (porVial[h.via + '|' + h.km] = porVial[h.via + '|' + h.km] || []).push(h);
+      });
+      function masCercano(lista, h) {
+        var mejor = null, dmin = 3000;
+        (lista || []).forEach(function (x) { var d = h.ll.distanceTo(x.ll); if (d < dmin) { dmin = d; mejor = x; } });
+        return mejor;
+      }
+      segmentos = [];
+      hitos.forEach(function (h) {
+        var sig = masCercano(porSerie[h.serie + '|' + (h.km + 1)], h), mixto = false;
+        if (!sig) { sig = masCercano(porVial[h.via + '|' + (h.km + 1)], h); mixto = true; }
+        if (sig) segmentos.push({ a: h, b: sig, serie: h.serie, via: h.via, fecha: h.fecha, mixto: mixto, rumbo: rumboEntre(h.ll, sig.ll) });
+      });
+      kmCarga = { bounds: b, zoom: mapa.getZoom() };
+      pkEl.innerHTML = hitos.length ? '' : '<span class="aviso">No hay hitos kilométricos en esta zona</span>';
+    }).catch(function () {
+      pkEl.innerHTML = '<span class="aviso">No se pudieron cargar los kilómetros</span>';
+    }).then(function () { cargando = false; });
+  }
+  mapa.on('moveend', cargarKm);
+  cargarKm();
+
+  // Kilómetro más cercano al cursor
+  var coordEl = document.getElementById('coord');
+  mapa.on('mousemove', function (e) {
+    coordEl.textContent = e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
+    if (!hitos.length || mapa.getZoom() < 13) return;
+    var mejor = null, dmin = Infinity;
+    for (var i = 0; i < hitos.length; i++) {
+      var d = e.latlng.distanceTo(hitos[i].ll);
+      if (d < dmin) { dmin = d; mejor = hitos[i]; }
+    }
+    var umbral = 40075016 / Math.pow(2, mapa.getZoom() + 8) * 40; // ~40 píxeles
+    if (mejor && dmin < umbral) {
+      var rv = refVia[mejor.via];
+      if (typeof rv === 'string') {
+        pkEl.innerHTML = 'Carretera: <b>' + (rv ? rv + ' · ' : '') + 'km ' + mejor.km + '</b> (a ' + Math.round(dmin) + ' m)';
+      } else {
+        pkEl.innerHTML = 'Carretera: <b>km ' + mejor.km + '</b> (a ' + Math.round(dmin) + ' m)';
+        refDeVia(mejor.via, mejor.ll);            // se busca el nombre y saldrá en el siguiente movimiento
+      }
+    } else {
+      pkEl.textContent = '';
+    }
+  });
+
+  // ---------- Clic: municipio y provincia ----------
+  var lugarEl = document.getElementById('lugar');
+  var marca = null;
+  mapa.on('click', function (e) {
+    if (modoSV) { abrirSV(e.latlng); return; }
+    if (rutaElegir) {
+      var cual = rutaElegir; rutaElegir = null; mapa.getContainer().classList.remove('soltando');
+      if (cual === 'P') { anadirParada(e.latlng, ''); rutaAviso('Parada añadida.'); }
+      else { ponerPunto(cual, e.latlng); rutaAviso(cual === 'B' ? 'Destino colocado. Pulsa «Calcular ruta».' : 'Origen colocado.'); }
+      return;
+    }
+    if (marca) mapa.removeLayer(marca);
+    marca = L.marker(e.latlng).addTo(mapa);
+    var lat = e.latlng.lat, lng = e.latlng.lng;
+    var svUrl = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + lat.toFixed(6) + ',' + lng.toFixed(6);
+    var parro = '', lugarTxt = 'Buscando municipio…';
+    function contenido() {
+      return '<b>' + lugarTxt + '</b>' + (parro ? '<br>Parroquia: <b>' + parro + '</b>' : '') +
+             '<br>' + lat.toFixed(5) + ', ' + lng.toFixed(5) +
+             '<br><a href="' + svUrl + '" target="_blank" rel="noopener">Abrir en Street View</a>';
+    }
+    function pintar() {
+      lugarEl.textContent = lugarTxt + (parro ? ' · parroquia: ' + parro : '');
+      marca.setPopupContent(contenido());
+    }
+    marca.bindPopup(contenido()).openPopup();
+    lugarEl.textContent = lugarTxt;
+    if (mapa.hasLayer(parroGrupo) && GAL_BOUNDS.contains(e.latlng)) {
+      var qp = PARRO_URL + '/21/query?f=json&geometry=' + lng + ',' + lat +
+        '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=PARROQUIA&returnGeometry=false';
+      fetch(qp).then(function (r) { return r.json(); }).then(function (d) {
+        var f = d.features && d.features[0];
+        if (f && f.attributes && f.attributes.PARROQUIA) { parro = f.attributes.PARROQUIA; pintar(); }
+      }).catch(function () {});
+    }
+    var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&accept-language=es&lat=' + e.latlng.lat + '&lon=' + e.latlng.lng;
+    fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      var a = d.address || {};
+      var muni = a.city || a.town || a.village || a.municipality || a.hamlet || '';
+      var prov = a.province || a.state_district || a.county || '';
+      lugarTxt = arreglarNombre([muni, prov].filter(Boolean).join(', ')) || 'Sin datos para este punto';
+      pintar();
+    }).catch(function () { lugarTxt = 'No se pudo consultar el municipio'; pintar(); });
+  });
+
+
+  // ---------- Street View (muñeco arrastrable) ----------
+  var modoSV = false;
+  var svMarca = null;
+  var svKey = '';
+  try { svKey = localStorage.getItem('svkey') || ''; } catch (err) {}
+  var svKeyInput = document.getElementById('svkey');
+  var svEstado = document.getElementById('svestado');
+  var svPanel = document.getElementById('sv');
+  var svFrame = document.getElementById('svframe');
+  var svMsg = document.getElementById('svmsg');
+  var svLink = document.getElementById('svlink');
+  var svNota = document.getElementById('svnota');
+  var svToken = 0;
+  if (svKey) { svKeyInput.value = svKey; svEstado.textContent = 'Clave guardada. Street View se abre dentro de la app.'; }
+
+  document.getElementById('svguardar').addEventListener('click', function () {
+    svKey = svKeyInput.value.trim();
+    try { localStorage.setItem('svkey', svKey); } catch (err) {}
+    svEstado.textContent = svKey ? 'Clave guardada. Street View se abre dentro de la app.' : 'Sin clave, el muñeco abre Street View en una pestaña nueva.';
+  });
+  document.getElementById('svcerrar').addEventListener('click', cerrarSV);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarSV(); });
+
+  var pegSvg = '<svg viewBox="0 0 30 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+    '<circle cx="15" cy="8" r="6.5" fill="#f59e0b" stroke="#7c3f00" stroke-width="1.5"/>' +
+    '<path d="M7 20c0-4 3-6.5 8-6.5s8 2.5 8 6.5v9h-3v13h-4V32h-2v10h-4V29H7z" fill="#f59e0b" stroke="#7c3f00" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+
+  var PegControl = L.Control.extend({
+    onAdd: function () {
+      var d = L.DomUtil.create('div', 'peg');
+      d.innerHTML = '<button type="button" id="peg" title="Arrastra hasta una calle para ver Street View" aria-label="Street View: arrastra hasta el mapa o pulsa y haz clic en el mapa">' + pegSvg + '</button>';
+      L.DomEvent.disableClickPropagation(d);
+      return d;
+    }
+  });
+  new PegControl({ position: 'bottomright' }).addTo(mapa);
+
+  var peg = document.getElementById('peg');
+  var fantasma = null, movido = false, ini = null;
+
+  function limpiarArrastre() {
+    if (fantasma) { fantasma.remove(); fantasma = null; }
+    mapa.getContainer().classList.remove('soltando');
+  }
+  peg.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    peg.setPointerCapture(e.pointerId);
+    movido = false; ini = { x: e.clientX, y: e.clientY };
+    fantasma = document.createElement('div');
+    fantasma.id = 'pegfantasma';
+    fantasma.innerHTML = pegSvg;
+    fantasma.style.display = 'none';
+    fantasma.style.left = (e.clientX - 15) + 'px';
+    fantasma.style.top = (e.clientY - 40) + 'px';
+    document.body.appendChild(fantasma);
+  });
+  peg.addEventListener('pointermove', function (e) {
+    if (!fantasma) return;
+    if (!movido && Math.hypot(e.clientX - ini.x, e.clientY - ini.y) > 5) {
+      movido = true; fantasma.style.display = 'block';
+      mapa.getContainer().classList.add('soltando');
+    }
+    fantasma.style.left = (e.clientX - 15) + 'px';
+    fantasma.style.top = (e.clientY - 40) + 'px';
+  });
+  peg.addEventListener('pointerup', function (e) {
+    if (!fantasma) return;
+    var arrastro = movido;
+    limpiarArrastre();
+    if (arrastro) {
+      var r = mapa.getContainer().getBoundingClientRect();
+      var dentro = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (dentro) { abrirSV(mapa.mouseEventToLatLng(e)); }
+    } else {
+      modoSV = !modoSV;
+      peg.classList.toggle('activo', modoSV);
+      mapa.getContainer().classList.toggle('soltando', modoSV);
+    }
+  });
+  peg.addEventListener('pointercancel', limpiarArrastre);
+
+  function abrirSV(ll) {
+    modoSV = false;
+    peg.classList.remove('activo');
+    mapa.getContainer().classList.remove('soltando');
+    if (svMarca) mapa.removeLayer(svMarca);
+    svMarca = L.marker(ll, {
+      draggable: true,
+      icon: L.divIcon({ className: 'pegmarca', html: pegSvg, iconSize: [30, 44], iconAnchor: [15, 42] })
+    }).addTo(mapa);
+    svMarca.on('dragend', function () { mostrarSV(svMarca.getLatLng()); });
+    mostrarSV(ll);
+  }
+
+  function buscarPano(ll, radios) {
+    var url = 'https://maps.googleapis.com/maps/api/streetview/metadata?location=' + ll.lat.toFixed(6) + ',' + ll.lng.toFixed(6) +
+      '&radius=' + radios[0] + '&source=outdoor&key=' + encodeURIComponent(svKey);
+    return fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.status === 'OK') return { ok: true, lat: d.location.lat, lng: d.location.lng, pano: d.pano_id };
+      if (d.status === 'ZERO_RESULTS' || d.status === 'NOT_FOUND') return { sinCobertura: true };
+      if (radios.length > 1) return buscarPano(ll, radios.slice(1));
+      return { motivo: d.status || 'error' };
+    }).catch(function () { return { motivo: 'sin conexión con la API' }; });
+  }
+
+  function mostrarSV(ll) {
+    var token = ++svToken;
+    var lat = ll.lat.toFixed(6), lng = ll.lng.toFixed(6);
+    var enlace = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + lat + ',' + lng;
+    svLink.href = enlace;
+    svPanel.hidden = false;
+    mapa.getContainer().classList.add('conSV'); mapa.invalidateSize();
+    svNota.hidden = true;
+    if (!svKey) {
+      svFrame.hidden = true; svFrame.removeAttribute('src');
+      svMsg.hidden = false;
+      svMsg.innerHTML = 'Para ver Street View dentro de la app, pega tu clave de Google en el panel de la izquierda (sección Street View).<br><br>' +
+        'Mientras tanto puedes <a href="' + enlace + '" target="_blank" rel="noopener">abrirlo en una pestaña nueva</a>.';
+      return;
+    }
+    svFrame.hidden = true; svFrame.removeAttribute('src');
+    svMsg.hidden = false; svMsg.textContent = 'Buscando el Street View más cercano…';
+    buscarPano(ll, [5000, 1000]).then(function (r) {
+      if (token !== svToken) return;   // se soltó el muñeco en otro sitio mientras tanto
+      var base = 'https://www.google.com/maps/embed/v1/streetview?key=' + encodeURIComponent(svKey);
+      if (r.ok) {
+        var loc = L.latLng(r.lat, r.lng);
+        var d = Math.round(ll.distanceTo(loc));
+        if (svMarca && d > 3) svMarca.setLatLng(loc);
+        svLink.href = 'https://www.google.com/maps/@?api=1&map_action=pano&pano=' + encodeURIComponent(r.pano) + '&viewpoint=' + r.lat + ',' + r.lng;
+        if (d >= 15) { svNota.hidden = false; svNota.textContent = 'Mostrando el Street View más cercano, a ' + d + ' m del punto elegido.'; }
+        svMsg.hidden = true; svFrame.hidden = false;
+        svFrame.src = base + '&pano=' + encodeURIComponent(r.pano) + '&fov=90';
+      } else if (r.sinCobertura) {
+        svMsg.hidden = false;
+        svMsg.textContent = 'No hay Street View a menos de 5 km de este punto. Arrastra el muñeco a otro sitio.';
+      } else {
+        svNota.hidden = false;
+        svNota.textContent = 'No se pudo buscar el punto más cercano (' + r.motivo + '). Para que funcione, activa «Street View Static API» en tu proyecto de Google Cloud.';
+        svMsg.hidden = true; svFrame.hidden = false;
+        svFrame.src = base + '&location=' + lat + ',' + lng + '&radius=1000&fov=90';
+      }
+    });
+  }
+
+  function cerrarSV() {
+    if (svPanel.hidden) return;
+    svToken++; svPanel.hidden = true; svFrame.removeAttribute('src');
+    mapa.getContainer().classList.remove('conSV'); mapa.invalidateSize();
+    if (svMarca) { mapa.removeLayer(svMarca); svMarca = null; }
+  }
+
+  // ---------- Mi ubicación, velocidad y rumbo ----------
+  var ubicPunto = null, ubicCirculo = null, ubicWatch = null, ubicCentrada = false;
+  var modoRuta = null, seguir = false, zoomRuta = 16, ultimaPos = null, rumboUlt = null, bloqueoPantalla = null;
+  var vFil = null, vFilT = 0;      // velocidad suavizada
+  var NOMBRES_RUMBO = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  var hud = document.getElementById('hud');
+  var hudKmh = document.getElementById('hudKmh'), hudFlecha = document.getElementById('hudFlecha');
+  var hudCard = document.getElementById('hudCard'), hudGrados = document.getElementById('hudGrados');
+  var hudExtra = document.getElementById('hudExtra'), hudSeguir = document.getElementById('hudSeguir');
+  var hudRuta = document.getElementById('hudRuta'), hudSentido = document.getElementById('hudSentido'), hudMuni = document.getElementById('hudMuni');
+  var hudSol = document.getElementById('hudSol'), hudViaje = document.getElementById('hudViaje'), hudTramo = document.getElementById('hudTramo');
+  // El mapa se acorta lo justo para dejar sitio al panel de abajo
+  if (window.ResizeObserver) {
+    new ResizeObserver(function () {
+      document.documentElement.style.setProperty('--hudH', (hud.hidden ? 0 : hud.offsetHeight) + 'px');
+      mapa.invalidateSize();
+      aplicarOrientacion();
+    }).observe(hud);
+  }
+
+  var UbicControl = L.Control.extend({
+    onAdd: function () {
+      var d = L.DomUtil.create('div', 'peg');
+      d.innerHTML = '<button type="button" id="ubic" title="Mostrar mi ubicación" aria-label="Mostrar mi ubicación">' +
+        '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+        '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>';
+      L.DomEvent.disableClickPropagation(d);
+      return d;
+    }
+  });
+  new UbicControl({ position: 'bottomright' }).addTo(mapa);   // se añade después del muñeco, queda encima
+  var ubicBtn = document.getElementById('ubic');
+
+  function iconoUbic() {
+    return L.divIcon({ className: 'ubic-icono', iconSize: [40, 40], iconAnchor: [20, 20],
+      html: '<div class="ubic-flecha"></div><div class="ubic-centro"></div>' });
+  }
+
+  function rumboEntre(a, b) {
+    var f1 = a.lat * Math.PI / 180, f2 = b.lat * Math.PI / 180, dl = (b.lng - a.lng) * Math.PI / 180;
+    var y = Math.sin(dl) * Math.cos(f2);
+    var x = Math.cos(f1) * Math.sin(f2) - Math.sin(f1) * Math.cos(f2) * Math.cos(dl);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  // Velocidad (m/s) y rumbo (grados): se usan los del GPS y, si no vienen, se calculan con el movimiento
+  function velocidadYRumbo(pos, ll) {
+    var c = pos.coords;
+    var v = (typeof c.speed === 'number' && !isNaN(c.speed)) ? c.speed : null;
+    var h = (typeof c.heading === 'number' && !isNaN(c.heading)) ? c.heading : null;
+    var t = pos.timestamp;
+    if (ultimaPos) {
+      var dt = (t - ultimaPos.t) / 1000, d = ultimaPos.ll.distanceTo(ll);
+      if (v === null && dt > 0.5) v = d / dt;
+      if (h === null && d > 5) h = rumboEntre(ultimaPos.ll, ll);
+      if (d > 3 || dt > 5) ultimaPos = { ll: ll, t: t };
+    } else {
+      ultimaPos = { ll: ll, t: t };
+    }
+    if (v !== null) {                               // se limita la aceleración (~4 m/s por segundo) y se suaviza
+      var tt = pos.timestamp || Date.now();
+      if (vFil !== null) {
+        var dts = Math.max(0.2, Math.min(5, (tt - vFilT) / 1000));
+        if (v > vFil + 4 * dts) v = vFil + 4 * dts;
+        vFil = 0.6 * v + 0.4 * vFil;
+      } else { vFil = v; }
+      vFilT = tt;
+      v = vFil;
+    }
+    if (v !== null && v < 0.3) v = 0;
+    var mov = v !== null && v >= 1;                 // con poca velocidad el rumbo no es fiable
+    if (mov && h !== null) rumboUlt = h;
+    return { v: v, rumbo: rumboUlt, mov: mov };
+  }
+
+  // ---- Carretera, kilómetro y sentido ----
+  var carretera = { ref: '', nombre: '', ll: null, t: 0, buscando: false, hasta: 0 };
+  var viaActual = null, serieActual = null, ultKm = null, fueraKm = 0;
+  var lugar = { muni: '', prov: '', parro: '', ll: null, t: 0, buscando: false, hasta: 0 };
+  var vialRangos = {};   // vial -> { min, max } con el primer y el último hito conocidos
+
+  function metros(a, p) {   // vector (este, norte) en metros desde p hasta a
+    var k = Math.cos(p.lat * Math.PI / 180);
+    return { x: (a.lng - p.lng) * 111320 * k, y: (a.lat - p.lat) * 110540 };
+  }
+  function distSegmento(p, a, b) {
+    var A = metros({ lat: a.lat, lng: a.lon }, p), B = metros({ lat: b.lat, lng: b.lon }, p);
+    var dx = B.x - A.x, dy = B.y - A.y, l2 = dx * dx + dy * dy;
+    var t = l2 ? Math.max(0, Math.min(1, -(A.x * dx + A.y * dy) / l2)) : 0;
+    return Math.hypot(A.x + t * dx, A.y + t * dy);
+  }
+  function fmtKm(n) { return (Math.round(n * 10) / 10).toString().replace('.', ','); }
+
+  function arreglarNombre(n) { return String(n || '').replace(/\bLa Coruña\b/g, 'A Coruña'); }
+
+  // Consulta a Overpass con varios servidores de respaldo
+  async function consultarOverpass(q, ms) {
+    var servidores = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.openstreetmap.fr/api/interpreter'];
+    for (var i = 0; i < servidores.length; i++) {
+      var ctl = new AbortController();
+      var to = setTimeout(function () { ctl.abort(); }, ms || 7000);
+      try {
+        var r = await fetch(servidores[i] + '?data=' + encodeURIComponent(q), { signal: ctl.signal });
+        clearTimeout(to);
+        if (!r.ok) continue;
+        var d = await r.json();
+        if (d && d.elements) return d;
+      } catch (err) { clearTimeout(to); }
+    }
+    return null;
+  }
+
+  // Concello o municipio, provincia y parroquia donde estás
+  async function buscarLugar(ll) {
+    if (lugar.buscando || Date.now() < lugar.hasta) return;
+    lugar.buscando = true;
+    var hecho = false;
+    try {
+      if (GAL_BOUNDS.contains(ll)) {        // Galicia: datos oficiales de la Xunta
+        var q = function (id, campos) {
+          return fetch(PARRO_URL + '/' + id + '/query?f=json&geometry=' + ll.lng.toFixed(6) + ',' + ll.lat.toFixed(6) +
+            '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=false&outFields=' + campos)
+            .then(function (r) { return r.json(); }).catch(function () { return {}; });
+        };
+        var res = await Promise.all([q(12, 'CONCELLO,PROVINCIA'), q(21, 'PARROQUIA')]);
+        var a = res[0].features && res[0].features[0], b = res[1].features && res[1].features[0];
+        if (a || b) {
+          lugar.muni = a ? (a.attributes.CONCELLO || '') : '';
+          lugar.prov = a ? (a.attributes.PROVINCIA || '') : '';
+          lugar.parro = b ? (b.attributes.PARROQUIA || '') : '';
+          hecho = true;
+        }
+      }
+      if (!hecho) {
+        var r = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=es&lat=' + ll.lat.toFixed(5) + '&lon=' + ll.lng.toFixed(5));
+        if (r.ok) {
+          var d = await r.json(), ad = d.address || {};
+          lugar.muni = ad.city || ad.town || ad.village || ad.municipality || ad.hamlet || '';
+          lugar.prov = ad.province || ad.state_district || ad.county || '';
+          lugar.parro = '';
+          hecho = true;
+        }
+      }
+    } catch (err) {}
+    lugar.muni = arreglarNombre(lugar.muni); lugar.prov = arreglarNombre(lugar.prov);
+    if (hecho) { lugar.ll = ll; lugar.t = Date.now(); lugar.hasta = Date.now() + 4000; }
+    else { lugar.hasta = Date.now() + 20000; }
+    lugar.buscando = false;
+  }
+
+  // Número de carretera (A-6, N-340…): OpenStreetMap vía Overpass y, si falla, vía Nominatim
+  // Número de carretera en un punto: CartoCiudad (IGN), luego OpenStreetMap (Overpass) y por último Nominatim
+  async function refEnPunto(ll, radio) {
+    var ref = '', nombre = '', ok = false;
+    try {
+      var q = '[out:json][timeout:8];way(around:' + radio + ',' + ll.lat.toFixed(6) + ',' + ll.lng.toFixed(6) + ')[highway][ref];out tags geom qt;';
+      try {
+        var rc = await fetch('https://www.cartociudad.es/geocoder/api/geocoder/reverseGeocode?lon=' + ll.lng.toFixed(6) + '&lat=' + ll.lat.toFixed(6));
+        if (rc.ok) {
+          var c = await rc.json();
+          var dc = (typeof c.lat === 'number' && typeof c.lng === 'number') ? ll.distanceTo(L.latLng(c.lat, c.lng)) : 0;
+          var m = String(c.address || '').toUpperCase().match(/\b([A-Z]{1,3}(?:-[A-Z]{1,3})*-\d{1,4}[A-Z]?)\b/);
+          if (m && dc <= Math.max(200, radio * 1.5)) { ref = m[1]; nombre = String(c.address || ''); ok = true; }
+        }
+      } catch (err) {}
+      var d = ref ? null : await consultarOverpass(q);
+      if (d) {
+        ok = true;
+        var mejor = null, dmin = 1e9;
+        (d.elements || []).forEach(function (w) {
+          var g = w.geometry || [];
+          for (var i = 0; i < g.length - 1; i++) {
+            var dd = distSegmento(ll, g[i], g[i + 1]);
+            if (dd < dmin) { dmin = dd; mejor = w; }
+          }
+        });
+        if (mejor) { ref = String(mejor.tags.ref).split(';')[0].trim(); nombre = mejor.tags.name || ''; }
+      }
+      if (!ref) {
+        var r = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&extratags=1&accept-language=es&lat=' + ll.lat.toFixed(6) + '&lon=' + ll.lng.toFixed(6));
+        if (r.ok) {
+          var n = await r.json(), ex = n.extratags || {}, ad = n.address || {};
+          ok = true;
+          if (ex.ref) ref = String(ex.ref).split(';')[0].trim();
+          else if (/^[A-Z]{1,3}(?:-[A-Z]{1,3})*[ -]?\d/.test(ad.road || '')) ref = ad.road;
+          if (!nombre) nombre = ad.road || '';
+        }
+      }
+    } catch (err) {}
+    return { ref: ref, nombre: nombre, ok: ok };
+  }
+
+  async function buscarCarretera(ll, prec) {
+    if (carretera.buscando || Date.now() < carretera.hasta) return;
+    carretera.buscando = true;
+    var res = await refEnPunto(ll, Math.min(250, Math.max(80, Math.round((prec || 0) * 2))));   // más error del GPS, más radio
+    if (res.ok) { carretera.ref = res.ref; carretera.nombre = res.nombre; carretera.ll = ll; carretera.t = Date.now(); }
+    else { carretera.hasta = Date.now() + 30000; }
+    carretera.buscando = false;
+  }
+
+  // Carretera a la que pertenece un hito: una sola consulta por carretera, guardada
+  var refVia = {};
+  function refDeVia(via, ll) {
+    if (refVia[via] === undefined) {
+      refVia[via] = refEnPunto(ll, 60).then(function (r) {
+        var t = r.ref || r.nombre || '';
+        if (r.ok) refVia[via] = t; else delete refVia[via];
+        return t;
+      });
+    }
+    return Promise.resolve(refVia[via]);
+  }
+
+  // Primer y último hito de un vial (para saber cuánto falta hasta el final)
+  async function cargarRango(via) {
+    if (vialRangos[via] !== undefined) return;
+    vialRangos[via] = 'cargando';
+    try {
+      var min = Infinity, max = -Infinity, offset = 0, total = Infinity;
+      for (var pag = 0; pag < 8 && offset < total; pag++) {
+        var url = 'https://api-features.idee.es/collections/markerpost/items?f=json&limit=1000&offset=' + offset +
+          '&localid_vial=' + encodeURIComponent(via);
+        var r = await fetch(url);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var d = await r.json();
+        var fs = d.features || [];
+        if (!fs.length) break;
+        var propios = 0;
+        fs.forEach(function (f) {
+          var p = f.properties || {};
+          if (p.localid_vial === via && typeof p.numero === 'number') {
+            propios++;
+            if (p.numero < min) min = p.numero;
+            if (p.numero > max) max = p.numero;
+          }
+        });
+        if (!propios && pag === 0) break;       // el filtro no ha funcionado: no usar estos datos
+        total = typeof d.numberMatched === 'number' ? d.numberMatched : fs.length;
+        offset += fs.length;
+      }
+      vialRangos[via] = isFinite(min) ? { min: min, max: max } : 'x';
+    } catch (err) { vialRangos[via] = 'x'; }
+  }
+
+  function hitoVecino(h, km) {
+    var mejor = null, dmin = 3000;
+    for (var i = 0; i < hitos.length; i++) {
+      var x = hitos[i];
+      if (x.via === h.via && x.km === km) {
+        var d = h.ll.distanceTo(x.ll);
+        if (d < dmin) { dmin = d; mejor = x; }
+      }
+    }
+    return mejor;
+  }
+
+  // Kilómetro (con decimales) y sentido de marcha sobre la carretera
+  function posicionEnCarretera(ll, r, prec) {
+    var radio = Math.min(250, Math.max(80, Math.round((prec || 0) * 2)));
+    var mov = r.mov && r.rumbo !== null;
+    var cand = [], maxFecha = '';
+    for (var i = 0; i < segmentos.length; i++) {
+      var sg = segmentos[i];
+      var A = metros(sg.a.ll, ll), B = metros(sg.b.ll, ll);
+      var dx = B.x - A.x, dy = B.y - A.y, l2 = dx * dx + dy * dy;
+      if (!l2) continue;
+      var t = -(A.x * dx + A.y * dy) / l2;
+      var tc = Math.max(0, Math.min(1, t));
+      var d = Math.hypot(A.x + tc * dx, A.y + tc * dy);
+      if (d > radio) continue;
+      var dif = 0;
+      if (mov) {
+        dif = Math.abs(((r.rumbo - sg.rumbo) + 540) % 360 - 180);     // 0: mismo sentido que el tramo, 180: contrario
+        if (Math.min(dif, 180 - dif) > 45) continue;                  // se ignoran las carreteras que cruzan
+      }
+      if (sg.fecha > maxFecha) maxFecha = sg.fecha;
+      cand.push({ sg: sg, d: d, t: Math.max(-0.15, Math.min(1.15, t)), dif: dif });
+    }
+    if (!cand.length) return null;
+    var mejor = null, pmin = 1e9;
+    cand.forEach(function (c) {
+      var pen = c.d;
+      if (viaActual && c.sg.via !== viaActual) pen += 40;             // seguir en la misma carretera
+      if (serieActual && c.sg.serie !== serieActual) pen += 40;       // y con la misma serie de hitos
+      else if (!serieActual && c.sg.fecha < maxFecha) pen += 15;      // si hay series duplicadas, la más reciente
+      if (c.sg.mixto) pen += 20;
+      if (pen < pmin) { pmin = pen; mejor = c; }
+    });
+    var seg = mejor.sg;
+    var km = seg.a.km + mejor.t;
+    var sentido = mov ? (mejor.dif < 90 ? 1 : -1) : 0;                // +1: los kilómetros suben, -1: bajan
+    // Descartar saltos imposibles del GPS
+    var ahora = Date.now();
+    if (ultKm && ultKm.serie === seg.serie && ultKm.via === seg.via) {
+      var dt = (ahora - ultKm.t) / 1000;
+      var avance = ((r.v || 0) * dt) / 1000;
+      if (Math.abs(km - ultKm.km) > avance + 0.75 && fueraKm < 3) {
+        fueraKm++;
+        km = ultKm.km + (ultKm.sentido || 0) * avance;
+      } else {
+        fueraKm = 0;
+      }
+    } else {
+      fueraKm = 0;
+    }
+    viaActual = seg.via; serieActual = seg.serie;
+    ultKm = { km: km, via: seg.via, serie: seg.serie, t: ahora, sentido: sentido || (ultKm ? ultKm.sentido : 0) };
+    return { km: km, via: seg.via, sentido: sentido };
+  }
+
+  function actualizarRuta(ll, r, prec) {
+    var pos = posicionEnCarretera(ll, r, prec);
+    var ref = carretera.ref || carretera.nombre;
+    if (!pos && !ref) { hudRuta.textContent = ''; hudSentido.textContent = ''; return; }
+    hudRuta.textContent = (ref || 'Carretera') + (pos ? ' · km ' + ((prec || 0) <= 50 ? fmtKm(pos.km) : '≈ ' + Math.round(pos.km)) : '');
+    if (!pos) { hudSentido.textContent = ''; return; }
+    var rango = vialRangos[pos.via];
+    if (rango === undefined) cargarRango(pos.via);
+    if (!pos.sentido) { hudSentido.textContent = r.mov ? '' : 'Parado'; return; }
+    var txt = pos.sentido > 0 ? '↑ Sentido creciente' : '↓ Sentido decreciente';
+    if (rango && typeof rango === 'object') {
+      var resto = pos.sentido > 0 ? rango.max - pos.km : pos.km - rango.min;
+      var fin = pos.sentido > 0 ? rango.max : rango.min;
+      txt += ' · quedan ' + fmtKm(Math.max(0, resto)) + ' km hasta ' + (pos.sentido > 0 ? 'el final' : 'el inicio') + ' (km ' + fin + ')';
+    }
+    hudSentido.textContent = txt;
+  }
+
+  function actualizarHud(r, ll, prec) {
+    var kmh = r.v === null ? null : r.v * 3.6;
+    velActualKmh = kmh === null ? 0 : kmh;
+    hudKmh.textContent = kmh === null ? '--' : (kmh < 1 ? '0' : String(Math.round(kmh)));
+    if (r.rumbo === null) {
+      hudCard.textContent = '--'; hudGrados.textContent = '';
+    } else {
+      hudCard.textContent = NOMBRES_RUMBO[Math.round(r.rumbo / 45) % 8];
+      hudGrados.textContent = Math.round(r.rumbo) + '°';
+      hudFlecha.style.transform = 'rotate(' + r.rumbo + 'deg)';
+    }
+    hudFlecha.style.opacity = r.mov ? 1 : 0.35;
+    if (modoRuta === 'andar') {
+      var txt = 'Ritmo --';
+      if (r.v !== null && r.v > 0.3) {
+        var seg = Math.round(1000 / r.v);
+        if (seg < 3600) txt = 'Ritmo ' + Math.floor(seg / 60) + ':' + ('0' + (seg % 60)).slice(-2) + ' min/km';
+      }
+      hudExtra.textContent = txt;
+    } else {
+      hudExtra.textContent = '';
+    }
+    // Volver a preguntar por el número de carretera cada cierto tiempo o distancia
+    if (!carretera.ll || ll.distanceTo(carretera.ll) > 250 || Date.now() - carretera.t > 30000) {
+      if (r.mov || !carretera.ll) buscarCarretera(ll, prec);
+    }
+    actualizarRuta(ll, r, prec);
+    hudSol.textContent = (typeof altActual === 'number' ? 'Altitud ' + Math.round(altActual) + ' m · ' : '') + textoSol(ll);
+    var lim = GAL_BOUNDS.contains(ll) ? 200 : 500;
+    if (!lugar.ll || ll.distanceTo(lugar.ll) > lim || Date.now() - lugar.t > 60000) {
+      if (r.mov || !lugar.ll) buscarLugar(ll);
+    }
+    var tl = lugar.muni ? lugar.muni + (lugar.prov && lugar.prov !== lugar.muni ? ' (' + lugar.prov + ')' : '') : '';
+    if (lugar.parro) tl += (tl ? ' · ' : '') + lugar.parro;
+    hudMuni.textContent = tl || 'Buscando lugar…';
+  }
+
+  function ubicActualizar(pos) {
+    var ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    var prec = Math.round(pos.coords.accuracy || 0);
+    var r = velocidadYRumbo(pos, ll);
+    actualizarRotacion(r);
+    var ahora = Date.now();
+    var gpsAlt = (typeof pos.coords.altitude === 'number') ? pos.coords.altitude : null;
+    if (gpsAlt === null && (modoRuta || (viaje && !viaje.fin))) consultarAltitud(ll);
+    altActual = gpsAlt !== null ? gpsAlt : (altDEM && ahora - altDEM.t < 180000 ? altDEM.v : null);
+    if (viaje && !viaje.fin) acumular(viaje, ll, prec, r.v, ahora, altActual);
+    if (tramo && !tramo.fin) acumular(tramo, ll, prec, r.v, ahora, null);
+    if (!ubicPunto) {
+      ubicCirculo = L.circle(ll, { radius: prec, color: '#2563eb', weight: 1, fillColor: '#2563eb', fillOpacity: 0.12, interactive: false }).addTo(mapa);
+      ubicPunto = L.marker(ll, { icon: iconoUbic(), zIndexOffset: 1000, keyboard: false }).addTo(mapa);
+    } else {
+      ubicPunto.setLatLng(ll); ubicCirculo.setLatLng(ll); ubicCirculo.setRadius(prec);
+    }
+    var contenido = 'Estás aquí<br>' + ll.lat.toFixed(5) + ', ' + ll.lng.toFixed(5) + '<br>Precisión: ±' + prec + ' m';
+    if (ubicPunto.getPopup()) ubicPunto.setPopupContent(contenido); else ubicPunto.bindPopup(contenido);
+    var el = ubicPunto.getElement(), fl = el && el.querySelector('.ubic-flecha');
+    if (fl) { fl.style.opacity = r.mov ? 1 : 0; if (rumboUlt !== null) fl.style.transform = 'rotate(' + rumboUlt + 'deg)'; }
+    ubicBtn.classList.add('activo');
+    if (!ubicCentrada) {
+      ubicCentrada = true;
+      mapa.flyTo(ll, modoRuta ? zoomRuta : Math.max(mapa.getZoom(), prec > 1000 ? 13 : 15));
+    } else if (modoRuta && seguir) {
+      mapa.panTo(ll, { animate: true, duration: 0.5 });
+    }
+    if (modoRuta) actualizarHud(r, ll, prec);
+    if (guiaActiva) actualizarGuia(ll, prec);
+    else if (modoRuta === 'conducir' && document.getElementById('curvasLibre').checked) actualizarCurvasLibre(ll, r, prec);
+    else document.getElementById('curvaBox').hidden = true;
+    document.getElementById('lugar').textContent = 'Tu ubicación (precisión ±' + prec + ' m)';
+  }
+
+  function ubicError(err) {
+    var msg = err.code === 1 ? 'No hay permiso para usar tu ubicación. Permítelo en la ventana y en Windows (Configuración, Privacidad, Ubicación).'
+      : err.code === 3 ? 'Tardó demasiado en obtener tu ubicación. Inténtalo de nuevo.'
+      : 'No se pudo obtener tu ubicación en este equipo.';
+    document.getElementById('lugar').innerHTML = '<span class="aviso">' + msg + '</span>';
+    if (ubicWatch !== null) { navigator.geolocation.clearWatch(ubicWatch); ubicWatch = null; }
+    ubicBtn.classList.remove('activo');
+  }
+
+  function iniciarUbic() {
+    if (!navigator.geolocation) {
+      document.getElementById('lugar').innerHTML = '<span class="aviso">Esta ventana no permite obtener la ubicación.</span>';
+      return false;
+    }
+    ubicCentrada = false; ultimaPos = null; rumboUlt = null; vFil = null;
+    document.getElementById('lugar').textContent = 'Buscando tu ubicación…';
+    ubicWatch = navigator.geolocation.watchPosition(ubicActualizar, ubicError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+    return true;
+  }
+
+  ubicBtn.addEventListener('click', function () {
+    if (ubicWatch !== null && ubicPunto) {          // ya está activa: volver a centrar
+      mapa.flyTo(ubicPunto.getLatLng(), Math.max(mapa.getZoom(), 15));
+      ubicPunto.openPopup();
+      return;
+    }
+    iniciarUbic();
+  });
+
+  // ---- Altitud actual: la del GPS si la da y, si no, la del terreno (Open-Meteo) ----
+  var altDEM = null, altBuscando = false, altActual = null;
+  async function consultarAltitud(ll) {
+    if (altBuscando) return;
+    if (altDEM && ll.distanceTo(altDEM.ll) < 150 && Date.now() - altDEM.t < 60000) return;
+    altBuscando = true;
+    try {
+      var r = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + ll.lat.toFixed(5) + '&longitude=' + ll.lng.toFixed(5));
+      if (r.ok) {
+        var d = await r.json();
+        if (d.elevation && typeof d.elevation[0] === 'number') altDEM = { v: d.elevation[0], ll: ll, t: Date.now() };
+      }
+    } catch (err) {}
+    altBuscando = false;
+  }
+
+  // ---- Viaje y tramo (radar de tramo) ----
+  var viaje = null, tramo = null;
+  (function () {
+    var inp = document.getElementById('tramoLimite'), g = null;
+    try { g = localStorage.getItem('tramoLimite'); } catch (err) {}
+    inp.value = g !== null ? g : '100';
+    inp.addEventListener('input', function () { try { localStorage.setItem('tramoLimite', inp.value); } catch (err) {} });
+  })();
+  var btnViaje = document.getElementById('btnViaje'), btnTramo = document.getElementById('btnTramo'), btnPausa = document.getElementById('btnPausa');
+  function pad2(n) { return ('0' + n).slice(-2); }
+  function fmtTiempo(ms) {
+    var s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+    return (h ? h + ':' + pad2(m) : m) + ':' + pad2(s % 60);
+  }
+  // Duración sin contar el tiempo en pausa
+  function duracionSesion(ses) {
+    var fin = ses.fin || Date.now();
+    return fin - ses.t0 - (ses.pausaTotal || 0) - (ses.pausaIni ? fin - ses.pausaIni : 0);
+  }
+  function nuevaSesion() { var t = Date.now(); return { t0: t, t: t, ult: null, dist: 0, max: 0, mov: 0, fin: null, ini: null, ruta: [], ultMuestra: 0, subida: 0, bajada: 0 }; }
+  function acumular(ses, ll, prec, v, ahora, alt) {
+    if (ses.pausaIni) return;                       // en pausa: no se cuenta nada
+    if (ses.ult) {
+      var d = ses.ult.distanceTo(ll), dt = (ahora - ses.t) / 1000;
+      if (d > Math.max(4, (prec || 0) * 0.5) && dt > 0 && d / dt < 90) {
+        ses.dist += d; ses.ult = ll;                  // se descartan saltos imposibles
+        if (ses.esViaje && ses.dist - ses.ultMuestra >= 40) { ses.ruta.push({ lat: ll.lat, lng: ll.lng, d: ses.dist, alt: alt }); ses.ultMuestra = ses.dist; }
+      }
+      if (v !== null && v >= 1) ses.mov += dt * 1000;
+    } else {
+      var primera = !ses.ini;
+      ses.ult = ll;
+      if (primera) ses.ini = ll;
+      if (ses.esViaje) {
+        ses.ruta.push({ lat: ll.lat, lng: ll.lng, d: ses.dist, alt: alt });
+        if (primera) lugarEn(ll).then(function (i) { ses.deInfo = i; if (resumenViaje === ses && !resumenEl.hidden) mostrarResumen(ses); });
+      }
+    }
+    ses.t = ahora;
+    var kmh = v === null ? null : v * 3.6;
+    if (kmh !== null && kmh < 250 && kmh > ses.max) ses.max = kmh;
+    if (ses.esViaje && typeof alt === 'number') {
+      if (ses.altRef === undefined) { ses.altRef = alt; ses.altMax = alt; ses.altMin = alt; }
+      else {
+        var dz = alt - ses.altRef;
+        if (dz >= 5) { ses.subida += dz; ses.altRef = alt; } else if (dz <= -5) { ses.bajada -= dz; ses.altRef = alt; }   // se ignoran cambios menores de 5 m
+        if (alt > ses.altMax) ses.altMax = alt;
+        if (alt < ses.altMin) ses.altMin = alt;
+      }
+    }
+  }
+  function textoSesion(nom, ses) {
+    var el = duracionSesion(ses);
+    var media = el > 0 ? ses.dist / (el / 1000) * 3.6 : 0;
+    var txt = nom + ' ' + fmtTiempo(el) + ' · ' + (ses.dist / 1000).toFixed(1).replace('.', ',') + ' km · máx ' + Math.round(ses.max) + ' · media ' + Math.round(media) + ' km/h';
+    if (nom === 'Viaje' && typeof ses.altRef === 'number') txt += ' · desnivel +' + Math.round(ses.subida) + ' m / −' + Math.round(ses.bajada) + ' m';
+    if (nom === 'Viaje' && ses.mov > 0) txt += ' (en marcha ' + Math.round(ses.dist / (ses.mov / 1000) * 3.6) + ')';
+    if (ses.pausaIni) txt += ' · EN PAUSA';
+    return txt;
+  }
+  // ---- Pitido de aviso ----
+  var audioCtx = null, ultPitido = 0, velActualKmh = 0;
+  function audioListo() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (err) {}
+  }
+  function pitar(forzar) {
+    var ahora = Date.now();
+    if (!forzar && ahora - ultPitido < 3000) return;      // como mucho un aviso cada 3 segundos
+    ultPitido = ahora;
+    audioListo();
+    if (!audioCtx) return;
+    try {
+      [0, 0.22].forEach(function (d) {
+        var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'square'; o.frequency.value = 1000; g.gain.value = 0.2;
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d + 0.15);
+      });
+    } catch (err) {}
+  }
+  document.getElementById('pitProbar').addEventListener('click', function () { pitar(true); });
+
+  function pintarMed() {
+    hudViaje.textContent = viaje ? textoSesion('Viaje', viaje) : '';
+    if (tramo) {
+      var el = (tramo.fin || Date.now()) - tramo.t0, media = el > 0 ? tramo.dist / (el / 1000) * 3.6 : 0;
+      var lim = parseFloat(document.getElementById('tramoLimite').value), txt = textoSesion('Tramo', tramo);
+      if (lim > 0) txt += media > lim ? ' · SUPERAS el límite en ' + Math.round(media - lim) + ' km/h' : ' · dentro del límite de ' + lim;
+      hudTramo.textContent = txt;
+      hudTramo.classList.toggle('excede', lim > 0 && media > lim);
+      if (!tramo.fin && lim > 0 && ((document.getElementById('pitMedia').checked && media > lim) ||
+          (document.getElementById('pitActual').checked && velActualKmh > lim))) pitar();
+    } else { hudTramo.textContent = ''; hudTramo.classList.remove('excede'); }
+  }
+  function alternar(ses, btn, ini, fin) {
+    if (!ses || ses.fin) { btn.textContent = fin; btn.classList.add('on'); return nuevaSesion(); }
+    ses.fin = Date.now(); btn.textContent = ini; btn.classList.remove('on'); return ses;
+  }
+  btnViaje.addEventListener('click', function () {
+    var acaba = viaje && !viaje.fin;
+    viaje = alternar(viaje, btnViaje, 'Iniciar viaje', 'Finalizar viaje');
+    if (acaba) {
+      viaje.fnLL = ubicPunto ? ubicPunto.getLatLng() : viaje.ult;
+      if (viaje.fnLL) {
+        viaje.ruta.push({ lat: viaje.fnLL.lat, lng: viaje.fnLL.lng, d: viaje.dist, alt: null });
+        lugarEn(viaje.fnLL).then(function (i) { var v = viaje; v.aInfo = i; if (resumenViaje === v && !resumenEl.hidden) mostrarResumen(v); });
+      }
+      mostrarResumen(viaje);
+    } else { viaje.esViaje = true; }
+    btnPausa.hidden = !(viaje && !viaje.fin); btnPausa.textContent = 'Pausar viaje'; btnPausa.classList.remove('on');
+    pintarMed();
+  });
+  btnPausa.addEventListener('click', function () {
+    if (!viaje || viaje.fin) return;
+    if (!viaje.pausaIni) {
+      viaje.pausaIni = Date.now();
+      btnPausa.textContent = 'Reanudar viaje'; btnPausa.classList.add('on');
+    } else {                                           // al reanudar se empieza de nuevo desde donde estés
+      viaje.pausaTotal = (viaje.pausaTotal || 0) + (Date.now() - viaje.pausaIni);
+      viaje.pausaIni = null; viaje.ult = null; viaje.t = Date.now();
+      btnPausa.textContent = 'Pausar viaje'; btnPausa.classList.remove('on');
+    }
+    pintarMed();
+  });
+  btnTramo.addEventListener('click', function () { audioListo(); tramo = alternar(tramo, btnTramo, 'Iniciar tramo', 'Finalizar tramo'); pintarMed(); });
+  setInterval(pintarMed, 1000);
+
+  // ---- Pantalla final del viaje ----
+  var resumenEl = document.getElementById('resumen'), resTexto = '';
+  function lugarTexto() {
+    var t = lugar.muni ? lugar.muni + (lugar.prov && lugar.prov !== lugar.muni ? ' (' + lugar.prov + ')' : '') : '';
+    return t;
+  }
+  function hora(t) { return new Date(t).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }
+  // Lugar de un punto (concello, provincia, parroquia y sitio) para la salida y la llegada del viaje
+  async function lugarEn(ll) {
+    var info = { muni: '', prov: '', parro: '', sitio: '' };
+    try {
+      if (GAL_BOUNDS.contains(ll)) {
+        var q = function (id, campos) {
+          return fetch(PARRO_URL + '/' + id + '/query?f=json&geometry=' + ll.lng.toFixed(6) + ',' + ll.lat.toFixed(6) +
+            '&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=false&outFields=' + campos)
+            .then(function (r) { return r.json(); }).catch(function () { return {}; });
+        };
+        var res = await Promise.all([q(12, 'CONCELLO,PROVINCIA'), q(21, 'PARROQUIA')]);
+        var a = res[0].features && res[0].features[0], b = res[1].features && res[1].features[0];
+        if (a) { info.muni = a.attributes.CONCELLO || ''; info.prov = a.attributes.PROVINCIA || ''; }
+        if (b) info.parro = b.attributes.PARROQUIA || '';
+      }
+    } catch (err) {}
+    try {
+      var r = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&accept-language=es&lat=' + ll.lat.toFixed(5) + '&lon=' + ll.lng.toFixed(5));
+      if (r.ok) {
+        var d = await r.json(), ad = d.address || {};
+        if (!info.muni) {
+          info.muni = ad.city || ad.town || ad.village || ad.municipality || '';
+          info.prov = ad.province || ad.state_district || ad.county || '';
+        }
+        info.sitio = ad.road || ad.hamlet || ad.suburb || ad.neighbourhood || ad.village || '';
+      }
+    } catch (err) {}
+    info.muni = arreglarNombre(info.muni); info.prov = arreglarNombre(info.prov);
+    return info;
+  }
+  function fmtLugar(i) {
+    if (!i) return 'buscando…';
+    var m = i.muni ? i.muni + (i.prov && i.prov !== i.muni ? ' (' + i.prov + ')' : '') : '';
+    var partes = [m, i.parro, i.sitio && i.sitio !== i.muni ? i.sitio : ''].filter(Boolean);
+    return partes.length ? partes.join(' · ') : 'sin datos';
+  }
+
+  // Relieve del recorrido: altitudes del terreno (Open-Meteo) y, si no hay conexión, las del GPS
+  async function pedirRelieve(v) {
+    var pts = v.ruta;
+    if (pts.length < 2) return null;
+    var paso = Math.max(1, Math.ceil(pts.length / 200)), m = [];
+    for (var i = 0; i < pts.length; i += paso) m.push(pts[i]);
+    if (m[m.length - 1] !== pts[pts.length - 1]) m.push(pts[pts.length - 1]);
+    try {
+      var alts = [];
+      for (var k = 0; k < m.length; k += 100) {
+        var tr = m.slice(k, k + 100);
+        var url = 'https://api.open-meteo.com/v1/elevation?latitude=' + tr.map(function (p) { return p.lat.toFixed(5); }).join(',') +
+          '&longitude=' + tr.map(function (p) { return p.lng.toFixed(5); }).join(',');
+        var r = await fetch(url);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var d = await r.json();
+        if (!d.elevation || d.elevation.length !== tr.length) throw new Error('datos');
+        alts = alts.concat(d.elevation);
+      }
+      return m.map(function (p, j) { return { d: p.d, alt: alts[j] }; });
+    } catch (err) {
+      var gps = m.filter(function (p) { return typeof p.alt === 'number'; });
+      return gps.length >= 2 ? gps.map(function (p) { return { d: p.d, alt: p.alt }; }) : null;
+    }
+  }
+  function estadisticasRelieve(perfil) {
+    var min = Infinity, max = -Infinity, subida = 0, bajada = 0, ref = perfil[0].alt;
+    perfil.forEach(function (p) {
+      if (p.alt < min) min = p.alt;
+      if (p.alt > max) max = p.alt;
+      var dif = p.alt - ref;
+      if (dif >= 5) { subida += dif; ref = p.alt; } else if (dif <= -5) { bajada -= dif; ref = p.alt; }   // se ignoran cambios menores de 5 m
+    });
+    return { min: min, max: max, subida: subida, bajada: bajada };
+  }
+  function perfilSvg(perfil, est) {
+    var W = 640, H = 120, pad = 6, dmax = perfil[perfil.length - 1].d || 1, rango = Math.max(10, est.max - est.min);
+    var pts = perfil.map(function (p) {
+      return (pad + (p.d / dmax) * (W - 2 * pad)).toFixed(1) + ',' + (H - pad - ((p.alt - est.min) / rango) * (H - 2 * pad)).toFixed(1);
+    });
+    var linea = pts.join(' ');
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true"><polygon points="' + linea + ' ' + (W - pad) + ',' + (H - pad) + ' ' + pad + ',' + (H - pad) +
+      '" fill="currentColor" opacity=".18"/><polyline points="' + linea + '" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
+  }
+
+  // Silueta del camino recorrido (salida en verde, llegada en rojo)
+  function trazadoSvg(ruta) {
+    if (ruta.length < 2) return '';
+    var paso = Math.max(1, Math.ceil(ruta.length / 1500)), pts = [];
+    for (var i = 0; i < ruta.length; i += paso) pts.push(ruta[i]);
+    if (pts[pts.length - 1] !== ruta[ruta.length - 1]) pts.push(ruta[ruta.length - 1]);
+    var lat0 = pts.reduce(function (a, p) { return a + p.lat; }, 0) / pts.length, k = Math.cos(lat0 * Math.PI / 180);
+    var xs = pts.map(function (p) { return p.lng * k; }), ys = pts.map(function (p) { return -p.lat; });
+    var minx = Math.min.apply(null, xs), maxx = Math.max.apply(null, xs), miny = Math.min.apply(null, ys), maxy = Math.max.apply(null, ys);
+    var w = (maxx - minx) || 1e-6, h = (maxy - miny) || 1e-6, W = 640, H = 300, pad = 22;
+    var esc = Math.min((W - 2 * pad) / w, (H - 2 * pad) / h), ox = (W - w * esc) / 2, oy = (H - h * esc) / 2;
+    var xy = pts.map(function (p, j) { return [ox + (xs[j] - minx) * esc, oy + (ys[j] - miny) * esc]; });
+    var linea = xy.map(function (q) { return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' ');
+    var a = xy[0], b = xy[xy.length - 1];
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" aria-label="Silueta del recorrido">' +
+      '<polyline points="' + linea + '" fill="none" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity=".8"/>' +
+      '<polyline points="' + linea + '" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<circle cx="' + a[0].toFixed(1) + '" cy="' + a[1].toFixed(1) + '" r="7" fill="#16a34a" stroke="#fff" stroke-width="2.5"/>' +
+      '<circle cx="' + b[0].toFixed(1) + '" cy="' + b[1].toFixed(1) + '" r="7" fill="#dc2626" stroke="#fff" stroke-width="2.5"/></svg>';
+  }
+
+  var resumenViaje = null;
+  function mostrarResumen(v) {
+    resumenViaje = v;
+    var el = duracionSesion(v), km = v.dist / 1000;
+    var media = el > 0 ? v.dist / (el / 1000) * 3.6 : 0;
+    var enMarcha = v.mov > 0 ? v.dist / (v.mov / 1000) * 3.6 : 0;
+    var parado = Math.max(0, el - v.mov);
+    var fecha = new Date(v.t0).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    fecha = fecha.charAt(0).toUpperCase() + fecha.slice(1);
+    var enlace = function (ll) { return ll ? 'https://www.google.com/maps?q=' + ll.lat.toFixed(5) + ',' + ll.lng.toFixed(5) : ''; };
+    var salida = 'Salida: ' + (v.ini ? fmtLugar(v.deInfo) : 'sin datos');
+    var llegada = 'Llegada: ' + (v.fnLL ? fmtLugar(v.aInfo) : 'sin datos');
+
+    var rel = v.relieve;
+    if (rel === undefined) {                          // el relieve se calcula una sola vez y la pantalla se refresca al llegar
+      v.relieve = 'cargando'; rel = 'cargando';
+      pedirRelieve(v).then(function (perfil) {
+        v.relieve = perfil ? { perfil: perfil, est: estadisticasRelieve(perfil) } : null;
+        if (resumenViaje === v && !resumenEl.hidden) mostrarResumen(v);
+      });
+    }
+    var datos = [
+      ['Duración', fmtTiempo(el)],
+      ['Distancia', km.toFixed(1).replace('.', ',') + ' km'],
+      ['Velocidad máxima', Math.round(v.max) + ' km/h'],
+      ['Velocidad media', Math.round(media) + ' km/h'],
+      ['Media en marcha', Math.round(enMarcha) + ' km/h'],
+      ['Tiempo en marcha', fmtTiempo(v.mov)],
+      ['Tiempo parado', fmtTiempo(parado)],
+      ['Salida y llegada', hora(v.t0) + ' – ' + hora(v.fin)]
+    ];
+    if (v.pausaTotal > 0) datos.push(['Tiempo en pausa', fmtTiempo(v.pausaTotal)]);
+    var est = rel && rel !== 'cargando' ? rel.est
+      : (rel === null && typeof v.altRef === 'number' ? { subida: v.subida, bajada: v.bajada, max: v.altMax, min: v.altMin } : null);
+    if (est) {
+      datos.push(['Desnivel acumulado', '+' + Math.round(est.subida) + ' m'], ['Descenso acumulado', '−' + Math.round(est.bajada) + ' m'],
+                 ['Altitud máxima', Math.round(est.max) + ' m'], ['Altitud mínima', Math.round(est.min) + ' m']);
+    } else {
+      datos.push(['Desnivel acumulado', rel === 'cargando' ? 'calculando…' : 'sin datos']);
+    }
+    document.getElementById('resFecha').textContent = fecha;
+    document.getElementById('resTrayecto').innerHTML = '<div>' + escHtml(salida) + '</div><div>' + escHtml(llegada) + '</div>';
+    document.getElementById('resGrid').innerHTML = datos.map(function (d) { return '<div class="stat"><b>' + d[1] + '</b><span>' + d[0] + '</span></div>'; }).join('');
+    document.getElementById('resTrazado').innerHTML = v.ruta.length >= 2
+      ? '<div class="titulo">Recorrido</div>' + trazadoSvg(v.ruta) + '<div class="leyenda">Verde: salida · Rojo: llegada</div>' : '';
+    document.getElementById('resPerfil').innerHTML = rel && rel !== 'cargando'
+      ? '<div class="titulo">Perfil del recorrido</div>' + perfilSvg(rel.perfil, rel.est) + '<div class="ejes"><span>0 km</span><span>' + km.toFixed(1).replace('.', ',') + ' km</span></div>' : '';
+    resTexto = 'Viaje terminado\n' + fecha + '\n' +
+      salida + (v.ini ? ' (' + enlace(v.ini) + ')' : '') + '\n' +
+      llegada + (v.fnLL ? ' (' + enlace(v.fnLL) + ')' : '') + '\n\n' +
+      datos.map(function (d) { return d[0] + ': ' + d[1]; }).join('\n') + '\n\nMapa de España';
+    document.getElementById('resAviso').textContent = '';
+    resumenEl.hidden = false;
+  }
+  function cerrarResumen() { resumenEl.hidden = true; }
+  document.getElementById('resCerrar').addEventListener('click', cerrarResumen);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarResumen(); });
+  document.getElementById('resWasap').addEventListener('click', function () {
+    window.open('https://wa.me/?text=' + encodeURIComponent(resTexto), '_blank', 'noopener');
+  });
+  document.getElementById('resCopiar').addEventListener('click', function () {
+    var aviso = document.getElementById('resAviso');
+    function listo() { aviso.textContent = 'Copiado. Ya puedes pegarlo donde quieras.'; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(resTexto).then(listo).catch(function () { aviso.textContent = 'No se pudo copiar.'; });
+    } else { aviso.textContent = 'No se pudo copiar en esta ventana.'; }
+  });
+
+  // Salida y puesta de sol (cálculo astronómico, sin conexión)
+  function solTimes(d, lat, lng) {
+    var rad = Math.PI / 180;
+    var base = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    var J = base.getTime() / 86400000 + 2440587.5;
+    var n = Math.ceil(J - 2451545.0 + 0.0008);
+    var Jx = n - lng / 360;
+    var M = (357.5291 + 0.98560028 * Jx) % 360;
+    var C = 1.9148 * Math.sin(M * rad) + 0.02 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
+    var lam = (M + C + 180 + 102.9372) % 360;
+    var Jt = 2451545.0 + Jx + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * lam * rad);
+    var sd = Math.sin(lam * rad) * Math.sin(23.4397 * rad), cd = Math.cos(Math.asin(sd));
+    var cw = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * sd) / (Math.cos(lat * rad) * cd);
+    if (cw < -1 || cw > 1) return null;
+    var w = Math.acos(cw) / rad;
+    return { sale: new Date((Jt - w / 360 - 2440587.5) * 86400000), pone: new Date((Jt + w / 360 - 2440587.5) * 86400000) };
+  }
+  function textoSol(ll) {
+    var ahora = new Date(), hoy = solTimes(ahora, ll.lat, ll.lng);
+    if (!hoy) return '';
+    if (ahora < hoy.sale) return 'Salida del sol: ' + hora(hoy.sale);
+    if (ahora < hoy.pone) return 'Puesta de sol: ' + hora(hoy.pone);
+    var man = solTimes(new Date(ahora.getTime() + 86400000), ll.lat, ll.lng);
+    return man ? 'Salida del sol mañana: ' + hora(man.sale) : '';
+  }
+
+  // ---- Modo conducir / andar ----
+  function ponerSeguir(valor) {
+    seguir = valor;
+    hudSeguir.textContent = seguir ? 'Siguiendo' : 'Seguir';
+    if (seguir && ubicPunto) mapa.panTo(ubicPunto.getLatLng());
+  }
+
+  function setModo(m) {
+    if (!m && ((viaje && !viaje.fin) || (tramo && !tramo.fin)) && !confirm('Hay un viaje o un tramo en curso. ¿Salir y perderlo?')) {
+      document.getElementById('modo').value = modoRuta || ''; return;
+    }
+    if (!m) {
+      detenerGuia();
+      viaje = null; tramo = null; pintarMed();
+      btnViaje.textContent = 'Iniciar viaje'; btnViaje.classList.remove('on'); btnPausa.hidden = true;
+      btnTramo.textContent = 'Iniciar tramo'; btnTramo.classList.remove('on');
+    }
+    document.body.classList.toggle('ruta', !!m);
+    modoRuta = m || null;
+    hud.hidden = !modoRuta;
+    document.getElementById('orient').hidden = !modoRuta;
+    aplicarOrientacion();
+    if (bloqueoPantalla) { try { bloqueoPantalla.release(); } catch (err) {} bloqueoPantalla = null; }
+    if (!modoRuta) { seguir = false; return; }
+    zoomRuta = modoRuta === 'conducir' ? 16 : 18;
+    hudKmh.textContent = '--'; hudCard.textContent = '--'; hudGrados.textContent = ''; hudExtra.textContent = '';
+    ponerSeguir(true);
+    var kmsChk = document.getElementById('kms');
+    if (!kmsChk.checked) { kmsChk.checked = true; capaKm.addTo(mapa); kmCarga = null; cargarKm(); }
+    carretera.ll = null; carretera.ref = ''; carretera.hasta = 0; viaActual = null; serieActual = null; ultKm = null; fueraKm = 0; lugar.ll = null; lugar.muni = ''; lugar.parro = ''; lugar.hasta = 0;
+    hudRuta.textContent = ''; hudSentido.textContent = ''; hudMuni.textContent = 'Buscando lugar…';
+    if (ubicWatch === null) {
+      if (!iniciarUbic()) { document.getElementById('modo').value = ''; modoRuta = null; hud.hidden = true; return; }
+    } else if (ubicPunto) {
+      mapa.flyTo(ubicPunto.getLatLng(), zoomRuta);
+    }
+    if (navigator.wakeLock) {                        // evita que la pantalla se apague mientras se usa
+      navigator.wakeLock.request('screen').then(function (l) { bloqueoPantalla = l; }).catch(function () {});
+    }
+  }
+
+  document.getElementById('modo').addEventListener('change', function (e) { setModo(e.target.value); });
+  hudSeguir.addEventListener('click', function () { ponerSeguir(!seguir); });
+  document.getElementById('hudCerrar').addEventListener('click', function () {
+    document.getElementById('modo').value = ''; setModo('');
+  });
+  mapa.on('dragstart', function () { if (modoRuta && seguir) ponerSeguir(false); });   // al mover el mapa a mano se deja de seguir
+
+  // ---------- Ruta de A a B con guiado ----------
+  var rutaPane = mapa.createPane('rutaPane');
+  rutaPane.style.zIndex = 460;
+  var puntoA = null, puntoB = null, rutaElegir = null, rutaCapa = null, rutaDatos = null;
+  var guiaPrimera = false, paradas = [], curvaIdx = 0, guiaCurvasDichas = {}, guiaHechas = 0;
+  var guiaActiva = false, guiaIdx = 0, guiaPos = 0, guiaFuera = 0, guiaRecalc = 0, guiaDichos = {};
+  var rutaMsg = document.getElementById('rutaMsg');
+  var guiaEl = document.getElementById('guia');
+  function rutaAviso(t) { rutaMsg.textContent = t; }
+
+  function distM(a, b) {            // distancia en metros entre dos puntos [lat, lng]
+    var R = 6371000, rad = Math.PI / 180, dLat = (b[0] - a[0]) * rad, dLng = (b[1] - a[1]) * rad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function fmtDist(m) { return m < 1000 ? Math.max(10, Math.round(m / 10) * 10) + ' m' : (m / 1000).toFixed(1).replace('.', ',') + ' km'; }
+  function decirDist(m) { return m < 1000 ? Math.max(10, Math.round(m / 10) * 10) + ' metros' : (m / 1000).toFixed(1).replace('.', ',') + ' kilómetros'; }
+  function minus(t) { return t.charAt(0).toLowerCase() + t.slice(1); }
+
+  function textoPaso(st) {
+    var via = [st.ref, st.nombre].filter(Boolean).join(' '), en = via ? ' en ' + via : '';
+    var mods = { 'left': 'a la izquierda', 'right': 'a la derecha', 'slight left': 'ligeramente a la izquierda', 'slight right': 'ligeramente a la derecha',
+                 'sharp left': 'cerrado a la izquierda', 'sharp right': 'cerrado a la derecha', 'straight': 'recto', 'uturn': 'en U' };
+    var mod = mods[st.mod] || '';
+    switch (st.tipo) {
+      case 'depart': return 'Empieza por ' + (via || 'la vía indicada');
+      case 'arrive': return 'Has llegado a tu destino';
+      case 'turn': case 'end of road':
+        if (st.mod === 'uturn') return 'Haz un cambio de sentido';
+        return st.mod === 'straight' ? 'Sigue recto' + en : 'Gira ' + mod + en;
+      case 'continue': case 'new name': return 'Continúa' + (via ? ' por ' + via : '');
+      case 'merge': return 'Incorpórate' + (via ? ' a ' + via : '');
+      case 'on ramp': return 'Toma el acceso' + (via ? ' a ' + via : '');
+      case 'off ramp': return 'Toma la salida' + (via ? ' hacia ' + via : '');
+      case 'fork': return 'Mantente ' + (String(st.mod).indexOf('left') >= 0 ? 'a la izquierda' : 'a la derecha') + en;
+      case 'roundabout': case 'rotary': return 'En la rotonda, toma la ' + (st.exit ? st.exit + 'ª ' : '') + 'salida' + en;
+      case 'roundabout turn': return 'En la rotonda, gira ' + mod;
+      case 'exit roundabout': case 'exit rotary': return 'Sal de la rotonda' + en;
+      default: return 'Continúa' + (via ? ' por ' + via : '');
+    }
+  }
+  function iconoPaso(st) {
+    if (st.tipo === 'arrive') return '⚑';
+    if (st.tipo === 'roundabout' || st.tipo === 'rotary' || st.tipo === 'roundabout turn') return '⟳';
+    var m = { 'left': '←', 'right': '→', 'slight left': '↖', 'slight right': '↗', 'sharp left': '↙', 'sharp right': '↘', 'straight': '↑', 'uturn': '↶' };
+    return m[st.mod] || '↑';
+  }
+  function hablar(txt) {
+    if (!document.getElementById('rutaVoz').checked || !window.speechSynthesis) return;
+    try { speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(txt); u.lang = 'es-ES'; speechSynthesis.speak(u); } catch (err) {}
+  }
+
+  // ---- Puntos A y B ----
+  function ponerPunto(cual, ll, texto) {
+    var m = cual === 'A' ? puntoA : puntoB;
+    if (m) { m.setLatLng(ll); }
+    else {
+      m = L.marker(ll, { draggable: true, zIndexOffset: 900,
+        icon: L.divIcon({ className: 'ruta-punto', html: '<span style="background:' + (cual === 'A' ? '#16a34a' : '#dc2626') + '">' + cual + '</span>', iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(mapa);
+      m.on('dragend', function () { m._txt = ''; textoPuntos(); if (rutaDatos && !guiaActiva) calcularRuta(); });
+      if (cual === 'A') puntoA = m; else puntoB = m;
+    }
+    m._txt = texto || '';
+    textoPuntos();
+  }
+  function textoPuntos() {
+    var f = function (m, vacio) { if (!m) return vacio; var l = m.getLatLng(); return m._txt || (l.lat.toFixed(4) + ', ' + l.lng.toFixed(4)); };
+    document.getElementById('rutaATxt').textContent = f(puntoA, 'tu ubicación');
+    document.getElementById('rutaBTxt').textContent = f(puntoB, 'sin elegir');
+  }
+  function elegirEnMapa(cual) {
+    rutaElegir = rutaElegir === cual ? null : cual;
+    mapa.getContainer().classList.toggle('soltando', !!rutaElegir);
+    rutaAviso(rutaElegir ? 'Pulsa en el mapa para colocar ' + (rutaElegir === 'P' ? 'la parada' : rutaElegir) + '.' : '');
+    document.body.classList.remove('menu');
+  }
+  document.getElementById('rutaElegirA').addEventListener('click', function () { elegirEnMapa('A'); });
+  document.getElementById('rutaElegirB').addEventListener('click', function () { elegirEnMapa('B'); });
+  document.getElementById('rutaMiUbic').addEventListener('click', function () {
+    if (puntoA) { mapa.removeLayer(puntoA); puntoA = null; }
+    textoPuntos(); rutaAviso('El origen será tu ubicación.');
+  });
+  document.getElementById('rutaBuscarBtn').addEventListener('click', function () {
+    var q = document.getElementById('rutaBuscar').value.trim();
+    if (!q) return;
+    rutaAviso('Buscando…');
+    fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=es,pt,ad&accept-language=es&q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); }).then(function (res) {
+        if (!res.length) { rutaAviso('No he encontrado «' + q + '».'); return; }
+        var ll = L.latLng(parseFloat(res[0].lat), parseFloat(res[0].lon));
+        ponerPunto('B', ll, res[0].display_name.split(',').slice(0, 2).join(','));
+        mapa.flyTo(ll, 14); rutaAviso('Destino colocado. Pulsa «Calcular ruta».');
+      }).catch(function () { rutaAviso('La búsqueda ha fallado.'); });
+  });
+
+  // ---- Cálculo de la ruta ----
+  function obtenerOrigen() {
+    return new Promise(function (resolve, reject) {
+      if (puntoA) return resolve(puntoA.getLatLng());
+      if (ubicPunto) return resolve(ubicPunto.getLatLng());
+      if (!navigator.geolocation) return reject(new Error('sin ubicación'));
+      navigator.geolocation.getCurrentPosition(function (p) { resolve(L.latLng(p.coords.latitude, p.coords.longitude)); },
+        function () { reject(new Error('sin ubicación')); }, { enableHighAccuracy: true, timeout: 15000 });
+    });
+  }
+  async function pedirRuta(A, B, modo, vias) {
+    var bases = modo === 'pie' ? ['https://routing.openstreetmap.de/routed-foot/route/v1/driving/']
+      : modo === 'bici' ? ['https://routing.openstreetmap.de/routed-bike/route/v1/driving/']
+      : ['https://routing.openstreetmap.de/routed-car/route/v1/driving/', 'https://router.project-osrm.org/route/v1/driving/'];
+    for (var i = 0; i < bases.length; i++) {
+      try {
+        var coordenadas = [A].concat(vias || [], [B]).map(function (q) { return q.lng.toFixed(6) + ',' + q.lat.toFixed(6); }).join(';');
+        var r = await fetch(bases[i] + coordenadas + '?overview=full&geometries=geojson&steps=true');
+        if (!r.ok) continue;
+        var d = await r.json();
+        if (d.code === 'Ok' && d.routes && d.routes[0]) return d.routes[0];
+      } catch (err) {}
+    }
+    return null;
+  }
+  function prepararRuta(rt, modo, offset) {
+    var coords = rt.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+    var acum = [0];
+    for (var i = 1; i < coords.length; i++) acum.push(acum[i - 1] + distM(coords[i - 1], coords[i]));
+    var pasos = [], desde = 0;
+    rt.legs.forEach(function (leg, li) {
+      var ultimoLeg = li === rt.legs.length - 1;
+      leg.steps.forEach(function (st) {
+        var m = st.maneuver || {}, loc = m.location || [0, 0];
+        var o = { tipo: m.type, mod: m.modifier || '', exit: m.exit, nombre: st.name || '', ref: st.ref || '', dist: st.distance, ll: [loc[1], loc[0]] };
+        o.texto = textoPaso(o);
+        if (o.tipo === 'arrive') {
+          if (ultimoLeg) o.final = true;
+          else { o.parada = (offset || 0) + li + 1; o.texto = 'Llegas a la parada ' + o.parada; }
+        }
+        var mejor = desde, dmin = 1e18;                      // vértice de la ruta más cercano a la maniobra, siempre hacia delante
+        for (var j = desde; j < coords.length; j++) {
+          var dy = coords[j][0] - o.ll[0], dx = (coords[j][1] - o.ll[1]) * 0.74, dd = dx * dx + dy * dy;
+          if (dd < dmin) { dmin = dd; mejor = j; }
+        }
+        desde = mejor; o.d = acum[mejor];
+        pasos.push(o);
+      });
+    });
+    var curvas = calcularCurvas(coords, acum).filter(function (c) {      // las curvas de un cruce ya las avisa la maniobra
+      return !pasos.some(function (q) { return /^(turn|end of road|roundabout|rotary|roundabout turn|exit roundabout|exit rotary)$/.test(q.tipo) && Math.abs(q.d - c.sm) < 50; });
+    });
+    return { coords: coords, acum: acum, pasos: pasos, dist: acum[acum.length - 1], dur: rt.duration, modo: modo, curvas: curvas, grupos: agruparCurvas(curvas) };
+  }
+  function dibujarRuta(ajustar) {
+    if (rutaCapa) mapa.removeLayer(rutaCapa);
+    rutaCapa = L.layerGroup([
+      L.polyline(rutaDatos.coords, { pane: 'rutaPane', color: '#ffffff', weight: 9, opacity: 0.85, lineJoin: 'round' }),
+      L.polyline(rutaDatos.coords, { pane: 'rutaPane', color: '#2563eb', weight: 5, opacity: 1, lineJoin: 'round' })
+    ]).addTo(mapa);
+    if (ajustar) mapa.fitBounds(L.latLngBounds(rutaDatos.coords), { padding: [40, 40] });
+    var min = Math.round(rutaDatos.dur / 60), h = Math.floor(min / 60);
+    document.getElementById('rutaResumen').textContent = fmtDist(rutaDatos.dist) + ' · ' + (h ? h + ' h ' + (min % 60) + ' min' : min + ' min');
+    document.getElementById('rutaPasos').innerHTML = rutaDatos.pasos.map(function (p) {
+      return '<li>' + escHtml(p.texto) + (p.tipo === 'arrive' ? '' : ' <small>(' + fmtDist(p.dist) + ')</small>') + '</li>';
+    }).join('');
+  }
+  async function calcularRuta() {
+    if (!puntoB) { rutaAviso('Elige primero el destino (B).'); return false; }
+    rutaAviso('Calculando la ruta…');
+    var A;
+    try { A = await obtenerOrigen(); } catch (err) { rutaAviso('No tengo tu ubicación. Elige el origen (A) en el mapa o activa la ubicación.'); return false; }
+    var modo = document.getElementById('rutaModo').value;
+    var rt = await pedirRuta(A, puntoB.getLatLng(), modo, paradas.map(function (m) { return m.getLatLng(); }));
+    if (!rt) { rutaAviso('No he podido calcular la ruta. Comprueba la conexión o prueba otro destino.'); return false; }
+    rutaDatos = prepararRuta(rt, modo);
+    dibujarRuta(true);
+    rutaAviso('');
+    return true;
+  }
+  document.getElementById('rutaCalcular').addEventListener('click', calcularRuta);
+  document.getElementById('rutaBorrar').addEventListener('click', function () {
+    detenerGuia();
+    if (rutaCapa) { mapa.removeLayer(rutaCapa); rutaCapa = null; }
+    [puntoA, puntoB].forEach(function (m) { if (m) mapa.removeLayer(m); });
+    puntoA = puntoB = rutaDatos = null;
+    paradas.forEach(function (m) { mapa.removeLayer(m); }); paradas = []; listaParadas();
+    document.getElementById('rutaResumen').textContent = ''; document.getElementById('rutaPasos').innerHTML = '';
+    textoPuntos(); rutaAviso('Ruta quitada.');
+  });
+
+  // ---- Guiado ----
+  function proyectarEnRuta(ll) {
+    var R = rutaDatos, c = R.coords, n = c.length, k = Math.cos(ll.lat * Math.PI / 180), mejor = { d: 1e18, s: 0, i: 0 };
+    function barrer(a, b) {
+      for (var i = a; i < b; i++) {
+        var ax = (c[i][1] - ll.lng) * 111320 * k, ay = (c[i][0] - ll.lat) * 110540;
+        var bx = (c[i + 1][1] - ll.lng) * 111320 * k, by = (c[i + 1][0] - ll.lat) * 110540;
+        var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+        var t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+        var d = Math.hypot(ax + t * dx, ay + t * dy);
+        if (d < mejor.d) mejor = { d: d, i: i, s: R.acum[i] + t * (R.acum[i + 1] - R.acum[i]) };
+      }
+    }
+    barrer(Math.max(0, guiaPos - 20), Math.min(n - 1, guiaPos + 600));
+    if (mejor.d > 60) barrer(0, n - 1);
+    guiaPos = mejor.i;
+    return mejor;
+  }
+  async function recalcular(ll) {
+    var vias = paradas.slice(guiaHechas).map(function (q) { return q.getLatLng(); });     // solo las paradas que faltan
+    var rt = await pedirRuta(ll, puntoB.getLatLng(), rutaDatos.modo, vias);
+    if (!rt || !guiaActiva) return;
+    rutaDatos = prepararRuta(rt, rutaDatos.modo, guiaHechas);
+    dibujarRuta(false);
+    guiaIdx = 0; guiaPos = 0; guiaDichos = {}; guiaFuera = 0; curvaIdx = 0; guiaCurvasDichas = {};
+  }
+  function actualizarGuia(ll, prec) {
+    var R = rutaDatos;
+    if (!R || !guiaActiva) return;
+    var p = proyectarEnRuta(ll);
+    if (p.d > Math.max(50, (prec || 0) * 1.5)) {                        // te has salido de la ruta
+      guiaFuera++;
+      document.getElementById('guiaIcono').textContent = '⚠';
+      document.getElementById('guiaDist').textContent = 'Fuera';
+      if (guiaFuera >= 3 && Date.now() - guiaRecalc > 12000) {
+        guiaRecalc = Date.now();
+        document.getElementById('guiaInst').textContent = 'Recalculando…';
+        hablar('Recalculando ruta');
+        recalcular(ll);
+      }
+      return;
+    }
+    guiaFuera = 0;
+    var avance = p.s, resto = Math.max(0, R.dist - avance);
+    var i = guiaIdx;
+    while (i < R.pasos.length - 1 && R.pasos[i].d <= avance + 15) {      // primera maniobra que aún no has hecho
+      var ps = R.pasos[i];
+      if (ps.parada && guiaHechas < ps.parada) { guiaHechas = ps.parada; if (!guiaPrimera) hablar('Has llegado a la parada ' + ps.parada); }
+      i++;
+    }
+    guiaIdx = Math.max(guiaIdx, i);
+    guiaPrimera = false;
+    var st = R.pasos[guiaIdx], dist = Math.max(0, st.d - avance);
+    var coche = R.modo !== 'pie' && R.modo !== 'bici';
+    document.getElementById('guiaIcono').textContent = iconoPaso(st);
+    document.getElementById('guiaDist').textContent = st.final ? '⚑' : fmtDist(dist);
+    guiaEl.setAttribute('aria-label', st.texto);
+    document.getElementById('guiaInst').textContent = st.texto;
+    var seg = R.dur * (R.dist ? resto / R.dist : 0), min = Math.max(1, Math.round(seg / 60));
+    document.getElementById('guiaResto').textContent = 'Quedan ' + fmtDist(resto) + ' · ' + min + ' min · llegada ' + hora(new Date(Date.now() + seg * 1000));
+    var hx = document.getElementById('hudExtra'); hx.textContent = (hx.textContent ? hx.textContent + ' · ' : '') + document.getElementById('guiaResto').textContent;
+    var umb = coche ? [500, 150] : [80, 25], ahora = coche ? 40 : 15;
+    var d = guiaDichos[guiaIdx] || (guiaDichos[guiaIdx] = {});
+    if (coche) avisoCurvas(avance, R); else document.getElementById('curvaBox').hidden = true;
+    if (st.final && resto <= (coche ? 30 : 15)) {
+      hablar('Has llegado a tu destino');
+      document.getElementById('guiaDist').textContent = '⚑';
+      guiaActiva = false;
+      setTimeout(function () { guiaEl.hidden = true; document.body.classList.remove('guiando'); document.getElementById('guiaParar').hidden = true; document.getElementById('rutaIniciar').textContent = 'Iniciar guiado'; }, 8000);
+      return;
+    }
+    if (dist <= ahora) { if (!d.a) { d.a = d.b = d.c = 1; hablar(st.texto); } }
+    else if (dist <= umb[1]) { if (!d.b) { d.b = d.c = 1; hablar('En ' + decirDist(dist) + ', ' + minus(st.texto)); } }
+    else if (dist <= umb[0]) { if (!d.c) { d.c = 1; hablar('En ' + decirDist(dist) + ', ' + minus(st.texto)); } }
+  }
+  async function iniciarGuia() {
+    if (!rutaDatos) { var ok = await calcularRuta(); if (!ok) return; }
+    guiaActiva = true; guiaIdx = 0; guiaPos = 0; guiaFuera = 0; guiaRecalc = 0; guiaDichos = {}; curvaIdx = 0; guiaCurvasDichas = {}; guiaHechas = 0;
+    guiaEl.hidden = false;
+    document.body.classList.add('guiando');
+    document.getElementById('guiaParar').hidden = false;
+    guiaPrimera = true;
+    var avance0 = 0;
+    if (ubicPunto) {                                          // empezar por el medio: se salta lo que queda atrás
+      var p0 = proyectarEnRuta(ubicPunto.getLatLng());
+      if (p0.d <= 60) {
+        avance0 = p0.s;
+        var k0 = 0;
+        while (k0 < rutaDatos.pasos.length - 1 && rutaDatos.pasos[k0].d <= avance0 + 15) {
+          if (rutaDatos.pasos[k0].parada && guiaHechas < rutaDatos.pasos[k0].parada) guiaHechas = rutaDatos.pasos[k0].parada;
+          k0++;
+        }
+        guiaIdx = k0;
+      }
+    }
+    document.getElementById('guiaIcono').textContent = '↑';
+    document.getElementById('guiaDist').textContent = 'GO';
+    document.getElementById('guiaInst').textContent = rutaDatos.pasos[0].texto;
+    document.getElementById('guiaResto').textContent = '';
+    document.getElementById('rutaIniciar').textContent = 'Detener guiado';
+    document.body.classList.remove('menu');
+    var m = rutaDatos.modo === 'pie' ? 'andar' : 'conducir';
+    if (modoRuta !== m) { document.getElementById('modo').value = m; setModo(m); }
+    else if (ubicWatch === null) { iniciarUbic(); }
+    hablar(avance0 > 100 ? 'Ruta iniciada. Continúa por la ruta.' : rutaDatos.pasos[0].texto);
+  }
+  function detenerGuia() {
+    guiaActiva = false;
+    guiaEl.hidden = true;
+    document.body.classList.remove('guiando');
+    document.getElementById('guiaParar').hidden = true;
+    document.getElementById('curvaBox').hidden = true;
+    document.getElementById('rutaIniciar').textContent = 'Iniciar guiado';
+    if (window.speechSynthesis) { try { speechSynthesis.cancel(); } catch (err) {} }
+  }
+  document.getElementById('rutaIniciar').addEventListener('click', function () { if (guiaActiva) detenerGuia(); else iniciarGuia(); });
+  document.getElementById('guiaParar').addEventListener('click', detenerGuia);
+
+  // ---- Curvas: radio a partir del trazado y clasificación de 1 (horquilla) a 6 (a fondo) ----
+  function calcularCurvas(coords, acum) {
+    var paso = 8, K = 3, total = acum[acum.length - 1];
+    if (!(total > 100)) return [];
+    var pts = [], j = 0, s, i;
+    for (s = 0; s <= total; s += paso) {                    // remuestreo cada 8 m
+      while (j < coords.length - 2 && acum[j + 1] < s) j++;
+      var l = acum[j + 1] - acum[j], t = l > 0 ? Math.min(1, (s - acum[j]) / l) : 0;
+      pts.push([coords[j][0] + (coords[j + 1][0] - coords[j][0]) * t, coords[j][1] + (coords[j + 1][1] - coords[j][1]) * t]);
+    }
+    var n = pts.length, rad = [], dir = [];
+    for (i = 0; i < n; i++) { rad.push(Infinity); dir.push(0); }
+    for (i = K; i < n - K; i++) {                           // radio de la circunferencia por tres puntos (24 m a cada lado)
+      var p1 = pts[i - K], p2 = pts[i], p3 = pts[i + K], c = Math.cos(p2[0] * Math.PI / 180);
+      var ax = (p1[1] - p2[1]) * 111320 * c, ay = (p1[0] - p2[0]) * 110540, bx = (p3[1] - p2[1]) * 111320 * c, by = (p3[0] - p2[0]) * 110540;
+      var cr = ax * by - ay * bx;
+      if (Math.abs(cr) > 1e-6) {
+        rad[i] = Math.hypot(ax, ay) * Math.hypot(bx, by) * Math.hypot(ax - bx, ay - by) / (2 * Math.abs(cr));
+        dir[i] = (-ax * by + ay * bx) > 0 ? 1 : -1;         // +1: izquierdas, -1: derechas
+      }
+    }
+    var curvas = [], ini = -1, ult = -1;
+    function cerrar(fin) {
+      var rmin = Infinity, im = ini, ang = 0, q;
+      for (q = ini; q <= fin; q++) { if (rad[q] < rmin) { rmin = rad[q]; im = q; } ang += paso / rad[q]; }
+      ang = ang * 180 / Math.PI;
+      var nCl = rmin < 20 ? 1 : rmin < 40 ? 2 : rmin < 70 ? 3 : rmin < 120 ? 4 : rmin < 250 ? 5 : 6;
+      if (ang < (nCl === 6 ? 35 : 25)) return;              // se ignoran las revueltas ligeras
+      var mitad = Math.floor((ini + fin) / 2), k1 = 0, k2 = 0, c1 = 0, c2 = 0;
+      for (q = ini; q <= fin; q++) { if (q <= mitad) { k1 += 1 / rad[q]; c1++; } else { k2 += 1 / rad[q]; c2++; } }
+      curvas.push({ s0: ini * paso, s1: fin * paso, sm: im * paso, dir: dir[im], n: nCl, rmin: rmin, ang: ang,
+                    cierra: c2 > 0 && (k2 / c2) > (k1 / Math.max(1, c1)) * 1.35, larga: (fin - ini) * paso > 120 && nCl <= 4 });
+    }
+    for (i = K; i < n - K; i++) {
+      if (rad[i] < 400) {
+        if (ini >= 0 && dir[i] !== dir[ini]) { cerrar(ult); ini = i; } else if (ini < 0) ini = i;
+        ult = i;
+      } else if (ini >= 0 && i - ult > 2) { cerrar(ult); ini = -1; }
+    }
+    if (ini >= 0) cerrar(ult);
+    return curvas;
+  }
+  function textoCurva(c) {
+    return (c.n === 1 ? 'Horquilla' : 'Curva') + ' a ' + (c.dir > 0 ? 'izquierdas' : 'derechas') + ' ' + c.n + (c.cierra ? ', se cierra' : '') + (c.larga ? ', larga' : '');
+  }
+  // Curvas enlazadas: las que quedan a menos de 80 m una de otra se avisan juntas
+  function agruparCurvas(cs) {
+    var gs = [];
+    cs.forEach(function (c) {
+      var g = gs[gs.length - 1];
+      if (g && c.s0 - g.s1 < 80) { g.items.push(c); g.s1 = c.s1; g.n = Math.min(g.n, c.n); }
+      else gs.push({ s0: c.s0, s1: c.s1, n: c.n, items: [c] });
+    });
+    return gs;
+  }
+  function partesCurva(c) { return (c.n === 1 ? 'horquilla ' : '') + (c.dir > 0 ? 'izquierdas' : 'derechas') + ' ' + c.n; }
+  function textoGrupo(g) {
+    var k = g.items.length;
+    if (k === 1) return textoCurva(g.items[0]);
+    if (k > 4) return 'Serie de ' + k + ' curvas enlazadas, la más cerrada ' + g.n;
+    return ['', '', 'Dos', 'Tres', 'Cuatro'][k] + ' curvas enlazadas: ' + g.items.map(partesCurva).join(', ');
+  }
+  function hablarCurva(txt) {                               // no interrumpe una indicación de ruta que se esté diciendo
+    if (!document.getElementById('curvasVoz').checked || !window.speechSynthesis) return true;
+    try {
+      if (speechSynthesis.speaking) return false;
+      var u = new SpeechSynthesisUtterance(txt); u.lang = 'es-ES'; speechSynthesis.speak(u);
+    } catch (err) {}
+    return true;
+  }
+  // Icono de la curva: cuanto más cerrada, más gira el trazo (1 horquilla … 6 a fondo)
+  var ANG_CURVA = { 1: 170, 2: 120, 3: 95, 4: 70, 5: 45, 6: 25 };
+  function iconoCurva(n, dir) {
+    var t = ANG_CURVA[n] * Math.PI / 180, r = 10, L2 = 9, cx = 22, cy = 24;
+    var x2 = cx - r * Math.cos(t), y2 = cy - r * Math.sin(t);
+    var ax = Math.sin(t), ay = -Math.cos(t), x3 = x2 + L2 * ax, y3 = y2 + L2 * ay;
+    var d = 'M12 38 L12 24 A' + r + ' ' + r + ' 0 ' + (t > Math.PI ? 1 : 0) + ' 1 ' + x2.toFixed(1) + ' ' + y2.toFixed(1) + ' L' + x3.toFixed(1) + ' ' + y3.toFixed(1);
+    var h1 = [x3 - ax * 5 - ay * 4, y3 - ay * 5 + ax * 4], h2 = [x3 - ax * 5 + ay * 4, y3 - ay * 5 - ax * 4];
+    var punta = 'M' + h1[0].toFixed(1) + ' ' + h1[1].toFixed(1) + ' L' + x3.toFixed(1) + ' ' + y3.toFixed(1) + ' L' + h2[0].toFixed(1) + ' ' + h2[1].toFixed(1);
+    return '<svg viewBox="0 0 40 40" aria-hidden="true"' + (dir > 0 ? ' style="transform:scaleX(-1)"' : '') + '><path d="' + d +
+      '" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="' + punta +
+      '" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+  function dibujarCurvaBox(g) {
+    var box = document.getElementById('curvaBox');
+    if (!document.getElementById('curvasCaja').checked) { box.hidden = true; return; }
+    box.innerHTML = g.items.slice(0, 3).map(function (c) {
+      return '<div class="curva-tarjeta n' + c.n + '"><b>' + c.n + '</b>' + iconoCurva(c.n, c.dir) + '</div>';
+    }).join('') + (g.items.length > 3 ? '<div class="curva-tarjeta"><b>+' + (g.items.length - 3) + '</b></div>' : '');
+    box.hidden = false;
+  }
+  function avisoCurvas(avance, R) {
+    var cs = R.grupos || [], box = document.getElementById('curvaBox');
+    while (curvaIdx < cs.length && cs[curvaIdx].s1 < avance) curvaIdx++;
+    var g = cs[curvaIdx];
+    if (!g || g.s0 - avance > 800) { box.hidden = true; return; }
+    var dist = g.s0 - avance;
+    dibujarCurvaBox(g);
+    box.setAttribute('aria-label', textoGrupo(g) + (dist > 0 ? ', en ' + decirDist(dist) : ''));
+    var clave = g.clave !== undefined ? g.clave : curvaIdx;
+    var kmh = velActualKmh > 5 ? velActualKmh : 60;
+    var adv = Math.min(350, Math.max(100, kmh / 3.6 * 7));    // unos 7 segundos de antelación
+    if (g.n <= parseInt(document.getElementById('curvasMax').value, 10) && dist <= adv && dist > 15 && !guiaCurvasDichas[clave]) {
+      if (hablarCurva('En ' + decirDist(dist) + ', ' + minus(textoGrupo(g)))) guiaCurvasDichas[clave] = 1;
+    }
+  }
+
+  // ---- Curvas sin ruta: se sigue la carretera por la que vas con los datos de OpenStreetMap ----
+  var libre = null, grafo = null, libreBuscando = false, libreT = 0;
+  function brg(a, b) { return rumboEntre({ lat: a[0], lng: a[1] }, { lat: b[0], lng: b[1] }); }
+  function difAng(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
+  function unidirec(t) { return t.oneway === 'yes' || t.oneway === '1' || t.oneway === 'true' || t.junction === 'roundabout'; }
+  async function cargarGrafo(ll) {
+    var q = '[out:json][timeout:20];way(around:1200,' + ll.lat.toFixed(6) + ',' + ll.lng.toFixed(6) + ')' +
+      '[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];out body geom;';
+    var d = await consultarOverpass(q, 15000);
+    if (!d) return null;
+    var ways = [], nodos = {};
+    d.elements.forEach(function (w) {
+      if (!w.geometry || !w.nodes || w.geometry.length !== w.nodes.length) return;
+      var wi = ways.length;
+      ways.push({ nodes: w.nodes, g: w.geometry.map(function (p) { return [p.lat, p.lon]; }), tags: w.tags || {} });
+      w.nodes.forEach(function (id, k) { (nodos[id] = nodos[id] || []).push([wi, k]); });
+    });
+    return { ways: ways, nodos: nodos, centro: ll, t: Date.now() };
+  }
+  // Camino de unos 1,5 km por delante: en los cruces se sigue por la salida más recta (y por la misma carretera si hay duda)
+  function construirCamino(G, ll, rumbo, largo) {
+    var k = Math.cos(ll.lat * Math.PI / 180), mejor = null;
+    G.ways.forEach(function (w, wi) {
+      for (var i = 0; i < w.g.length - 1; i++) {
+        var ax = (w.g[i][1] - ll.lng) * 111320 * k, ay = (w.g[i][0] - ll.lat) * 110540;
+        var bx = (w.g[i + 1][1] - ll.lng) * 111320 * k, by = (w.g[i + 1][0] - ll.lat) * 110540;
+        var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+        var d = Math.hypot(ax + t * dx, ay + t * dy);
+        if (!mejor || d < mejor.d) mejor = { d: d, w: wi, i: i, t: t };
+      }
+    });
+    if (!mejor || mejor.d > 40) return null;
+    var W0 = G.ways[mejor.w], b0 = brg(W0.g[mejor.i], W0.g[mejor.i + 1]);
+    var adelante = rumbo === null || difAng(rumbo, b0) < 90;
+    if (!adelante && unidirec(W0.tags)) return null;
+    var A = W0.g[mejor.i], B = W0.g[mejor.i + 1];
+    var pts = [[A[0] + (B[0] - A[0]) * mejor.t, A[1] + (B[1] - A[1]) * mejor.t]];
+    var wi = mejor.w, dir = adelante ? 1 : -1, nxt = adelante ? mejor.i + 1 : mejor.i, total = 0, prev = pts[0], vueltas = 0;
+    while (total < largo && vueltas++ < 600) {
+      var W = G.ways[wi];
+      if (nxt < 0 || nxt >= W.g.length) break;
+      var p = W.g[nxt];
+      total += distM(prev, p); pts.push(p); prev = p;
+      var curBr = brg(pts[pts.length - 2], p), opciones = [], sig = nxt + dir;
+      if (sig >= 0 && sig < W.g.length) opciones.push({ w: wi, nxt: sig, dir: dir, br: brg(p, W.g[sig]), mismo: true });
+      (G.nodos[W.nodes[nxt]] || []).forEach(function (c) {
+        if (c[0] === wi) return;
+        var V = G.ways[c[0]];
+        [1, -1].forEach(function (dd) {
+          var s2 = c[1] + dd;
+          if (s2 < 0 || s2 >= V.g.length || (unidirec(V.tags) && dd < 0)) return;
+          opciones.push({ w: c[0], nxt: s2, dir: dd, br: brg(p, V.g[s2]), mismo: false, ref: V.tags.ref, name: V.tags.name });
+        });
+      });
+      var elegida = null, mejorScore = 1e9;
+      opciones.forEach(function (o) {
+        var sc = difAng(o.br, curBr) + (o.mismo ? 0 : 12);
+        if (!o.mismo && ((o.ref && o.ref === W.tags.ref) || (o.name && o.name === W.tags.name))) sc -= 8;
+        if (sc < mejorScore) { mejorScore = sc; elegida = o; }
+      });
+      if (!elegida || difAng(elegida.br, curBr) > 100) break;
+      wi = elegida.w; nxt = elegida.nxt; dir = elegida.dir;
+    }
+    return pts;
+  }
+  function puntoEn(coords, acum, s) {
+    var j = 0;
+    while (j < coords.length - 2 && acum[j + 1] < s) j++;
+    var l = acum[j + 1] - acum[j], t = l > 0 ? Math.min(1, (s - acum[j]) / l) : 0;
+    return [coords[j][0] + (coords[j + 1][0] - coords[j][0]) * t, coords[j][1] + (coords[j + 1][1] - coords[j][1]) * t];
+  }
+  function prepararLibre(pts) {
+    var acum = [0];
+    for (var i = 1; i < pts.length; i++) acum.push(acum[i - 1] + distM(pts[i - 1], pts[i]));
+    var total = acum[acum.length - 1];
+    if (total < 150) return null;
+    var grupos = agruparCurvas(calcularCurvas(pts, acum));
+    grupos.forEach(function (g) { var ap = puntoEn(pts, acum, g.items[0].sm); g.clave = ap[0].toFixed(4) + ',' + ap[1].toFixed(4); });
+    return { coords: pts, acum: acum, total: total, grupos: grupos };
+  }
+  function proyectarSimple(coords, acum, ll) {
+    var k = Math.cos(ll.lat * Math.PI / 180), mejor = { d: 1e18, s: 0 };
+    for (var i = 0; i < coords.length - 1; i++) {
+      var ax = (coords[i][1] - ll.lng) * 111320 * k, ay = (coords[i][0] - ll.lat) * 110540;
+      var bx = (coords[i + 1][1] - ll.lng) * 111320 * k, by = (coords[i + 1][0] - ll.lat) * 110540;
+      var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+      var d = Math.hypot(ax + t * dx, ay + t * dy);
+      if (d < mejor.d) mejor = { d: d, s: acum[i] + t * (acum[i + 1] - acum[i]) };
+    }
+    return mejor;
+  }
+  async function actualizarCurvasLibre(ll, r, prec) {
+    if (libre) {
+      var p = proyectarSimple(libre.coords, libre.acum, ll);
+      if (p.d <= Math.max(35, (prec || 0) * 1.5) && libre.total - p.s > 500) { avisoCurvas(p.s, libre); return; }
+    }
+    if (!r.mov || r.rumbo === null) return;                   // para rehacer el camino hace falta saber hacia dónde vas
+    var ahora = Date.now();
+    if (libreBuscando || ahora - libreT < 4000) return;
+    libreBuscando = true; libreT = ahora;
+    try {
+      if (!grafo || ll.distanceTo(grafo.centro) > 500 || ahora - grafo.t > 600000) {
+        var G = await cargarGrafo(ll);
+        if (G) grafo = G;
+      }
+      var pts = grafo ? construirCamino(grafo, ll, r.rumbo, 1500) : null;
+      libre = pts ? prepararLibre(pts) : null;
+      curvaIdx = 0;
+    } catch (err) { libre = null; }
+    libreBuscando = false;
+    if (libre) { var p2 = proyectarSimple(libre.coords, libre.acum, ll); avisoCurvas(p2.s, libre); }
+    else document.getElementById('curvaBox').hidden = true;
+  }
+  document.getElementById('curvasLibre').addEventListener('change', function () {
+    try { localStorage.setItem('curvasLibre', this.checked ? '1' : '0'); } catch (err) {}
+    libre = null; curvaIdx = 0; guiaCurvasDichas = {};
+    if (!this.checked && !guiaActiva) document.getElementById('curvaBox').hidden = true;
+  });
+  document.getElementById('curvasCaja').addEventListener('change', function () {
+    try { localStorage.setItem('curvasCaja', this.checked ? '1' : '0'); } catch (err) {}
+    if (!this.checked) document.getElementById('curvaBox').hidden = true;
+  });
+  try {
+    document.getElementById('curvasLibre').checked = localStorage.getItem('curvasLibre') === '1';
+    document.getElementById('curvasCaja').checked = localStorage.getItem('curvasCaja') !== '0';
+  } catch (err) {}
+
+  // ---- Paradas intermedias ----
+  function iconoParada(n) {
+    return L.divIcon({ className: 'ruta-punto', html: '<span style="background:#f59e0b">' + n + '</span>', iconSize: [28, 28], iconAnchor: [14, 14] });
+  }
+  function listaParadas() {
+    paradas.forEach(function (m, i) { m.setIcon(iconoParada(i + 1)); });
+    document.getElementById('rutaParadas').innerHTML = paradas.map(function (m, i) {
+      var l = m.getLatLng();
+      return '<li>' + escHtml(m._txt || (l.lat.toFixed(4) + ', ' + l.lng.toFixed(4))) + ' <button type="button" class="sec2" data-i="' + i + '" aria-label="Quitar parada ' + (i + 1) + '">✕</button></li>';
+    }).join('');
+  }
+  function anadirParada(ll, texto) {
+    var m = L.marker(ll, { draggable: true, zIndexOffset: 800, icon: iconoParada(paradas.length + 1) }).addTo(mapa);
+    m._txt = texto || '';
+    m.on('dragend', function () { m._txt = ''; listaParadas(); if (rutaDatos && !guiaActiva) calcularRuta(); });
+    paradas.push(m);
+    listaParadas();
+  }
+  document.getElementById('rutaParadas').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    var i = parseInt(b.getAttribute('data-i'), 10);
+    mapa.removeLayer(paradas[i]); paradas.splice(i, 1); listaParadas();
+    if (rutaDatos && !guiaActiva) calcularRuta();
+  });
+  document.getElementById('rutaParadaMapa').addEventListener('click', function () { elegirEnMapa('P'); });
+  document.getElementById('rutaParadaBtn').addEventListener('click', function () {
+    var q = document.getElementById('rutaParadaBuscar').value.trim();
+    if (!q) return;
+    rutaAviso('Buscando…');
+    fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=es,pt,ad&accept-language=es&q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); }).then(function (res) {
+        if (!res.length) { rutaAviso('No he encontrado «' + q + '».'); return; }
+        var ll = L.latLng(parseFloat(res[0].lat), parseFloat(res[0].lon));
+        anadirParada(ll, res[0].display_name.split(',').slice(0, 2).join(','));
+        document.getElementById('rutaParadaBuscar').value = '';
+        mapa.flyTo(ll, 13); rutaAviso('Parada añadida. Pulsa «Calcular ruta».');
+      }).catch(function () { rutaAviso('La búsqueda ha fallado.'); });
+  });
+
+  // ---- Rutas guardadas (presets) ----
+  var presets = [];
+  try { presets = JSON.parse(localStorage.getItem('rutasGuardadas') || '[]'); } catch (err) { presets = []; }
+  var presetSel = document.getElementById('rutaPreset');
+  function pintarPresets(sel) {
+    presetSel.innerHTML = presets.length ? presets.map(function (p, i) { return '<option value="' + i + '">' + escHtml(p.nombre) + '</option>'; }).join('')
+      : '<option value="">(ninguna guardada)</option>';
+    if (sel !== undefined && presets.length) presetSel.value = String(sel);
+  }
+  function guardarPresets() {
+    try { localStorage.setItem('rutasGuardadas', JSON.stringify(presets)); return true; }
+    catch (err) { rutaAviso('No se ha podido guardar en este equipo.'); return false; }
+  }
+  document.getElementById('presetGuardar').addEventListener('click', function () {
+    var nombre = document.getElementById('presetNombre').value.trim();
+    if (!nombre) { rutaAviso('Escribe un nombre para la ruta.'); return; }
+    if (!puntoB) { rutaAviso('Primero elige el destino y calcula la ruta.'); return; }
+    var pto = function (m) { if (!m) return null; var l = m.getLatLng(); return { lat: l.lat, lng: l.lng, txt: m._txt || '' }; };
+    var nuevo = { nombre: nombre, modo: document.getElementById('rutaModo').value, a: pto(puntoA), b: pto(puntoB), paradas: paradas.map(pto) };
+    var i = presets.findIndex(function (x) { return x.nombre === nombre; });
+    if (i >= 0) presets[i] = nuevo; else { presets.push(nuevo); i = presets.length - 1; }
+    if (guardarPresets()) { pintarPresets(i); document.getElementById('presetNombre').value = ''; rutaAviso('Ruta «' + nombre + '» guardada.'); }
+  });
+  async function cargarPreset(i, iniciar) {
+    var p = presets[i];
+    if (!p) { rutaAviso('No hay ninguna ruta guardada elegida.'); return; }
+    if (guiaActiva) detenerGuia();
+    if (puntoA && !p.a) { mapa.removeLayer(puntoA); puntoA = null; }
+    paradas.forEach(function (m) { mapa.removeLayer(m); }); paradas = [];
+    document.getElementById('rutaModo').value = p.modo;
+    if (p.a) ponerPunto('A', L.latLng(p.a.lat, p.a.lng), p.a.txt);
+    ponerPunto('B', L.latLng(p.b.lat, p.b.lng), p.b.txt);
+    (p.paradas || []).forEach(function (q) { anadirParada(L.latLng(q.lat, q.lng), q.txt); });
+    textoPuntos(); listaParadas();
+    var ok = await calcularRuta();
+    if (ok && iniciar) iniciarGuia();
+  }
+  document.getElementById('presetCargar').addEventListener('click', function () { cargarPreset(parseInt(presetSel.value, 10), false); });
+  document.getElementById('presetIniciar').addEventListener('click', function () { cargarPreset(parseInt(presetSel.value, 10), true); });
+  document.getElementById('presetBorrar').addEventListener('click', function () {
+    var i = parseInt(presetSel.value, 10);
+    if (isNaN(i) || !presets[i]) return;
+    var nombre = presets[i].nombre;
+    presets.splice(i, 1); guardarPresets(); pintarPresets(); rutaAviso('Ruta «' + nombre + '» borrada.');
+  });
+  pintarPresets();
+
+  // ---- Silenciar la ruta y las curvas ----
+  function sincronizarMute() {
+    document.getElementById('guiaMuteNav').textContent = '➜' + (document.getElementById('rutaVoz').checked ? '🔊' : '🔇');
+    document.getElementById('guiaMuteCur').textContent = '↰' + (document.getElementById('curvasVoz').checked ? '🔊' : '🔇');
+  }
+  ['rutaVoz', 'curvasVoz'].forEach(function (id) {
+    document.getElementById(id).addEventListener('change', function () {
+      if (!this.checked && window.speechSynthesis) { try { speechSynthesis.cancel(); } catch (err) {} }
+      sincronizarMute();
+    });
+  });
+  document.getElementById('guiaMuteNav').addEventListener('click', function () {
+    var c = document.getElementById('rutaVoz'); c.checked = !c.checked; c.dispatchEvent(new Event('change'));
+  });
+  document.getElementById('guiaMuteCur').addEventListener('click', function () {
+    var c = document.getElementById('curvasVoz'); c.checked = !c.checked; c.dispatchEvent(new Event('change'));
+  });
+  sincronizarMute();
+
+  // ---- Orientación del mapa: norte arriba o rumbo arriba (el mapa gira para que lo de delante quede arriba) ----
+  var orientRumbo = false, rotAcum = 0, rotUlt = null;
+  try { orientRumbo = localStorage.getItem('orientacion') === 'rumbo'; } catch (err) {}
+  function ponerContra() { document.documentElement.style.setProperty('--contra', (orientRumbo && modoRuta ? rotAcum : 0) + 'deg'); }
+  function interaccion(on) {
+    ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom', 'boxZoom', 'keyboard'].forEach(function (h) {
+      if (mapa[h]) { if (on) mapa[h].enable(); else mapa[h].disable(); }
+    });
+  }
+  function aplicarOrientacion() {
+    var mp = document.getElementById('mapa'), btnT = document.getElementById('orientTxt'), fl = document.getElementById('orientFlecha');
+    var activo = orientRumbo && !!modoRuta;
+    btnT.textContent = orientRumbo ? 'Rumbo arriba' : 'Norte arriba';
+    if (!activo) {
+      if (mp.classList.contains('rumbo')) {
+        mp.classList.remove('rumbo');
+        ['width', 'height', 'left', 'top', 'right', 'bottom', 'transform'].forEach(function (k) { mp.style[k] = ''; });
+        document.body.classList.remove('orient-rumbo');
+        document.getElementById('atrib').hidden = true;
+        rotUlt = null; rotAcum = 0;
+        interaccion(true);
+        mapa.invalidateSize();
+      }
+      fl.style.transform = ''; ponerContra();
+      return;
+    }
+    var main = document.querySelector('main'), W = main.clientWidth, H = main.clientHeight - (hud.hidden ? 0 : hud.offsetHeight);
+    var D = Math.ceil(Math.sqrt(W * W + H * H));         // un cuadrado que cubre la pantalla con cualquier giro
+    var primera = !mp.classList.contains('rumbo');
+    mp.classList.add('rumbo');
+    mp.style.width = D + 'px'; mp.style.height = D + 'px';
+    mp.style.left = ((W - D) / 2) + 'px'; mp.style.top = ((H - D) / 2) + 'px';
+    mp.style.right = 'auto'; mp.style.bottom = 'auto';
+    if (primera && rumboUlt !== null) { rotAcum = rumboUlt; rotUlt = rumboUlt; }
+    mp.style.transform = 'rotate(' + (-rotAcum) + 'deg)';
+    document.body.classList.add('orient-rumbo');
+    var ac = mapa.attributionControl && mapa.attributionControl._container;
+    var at = document.getElementById('atrib'); at.innerHTML = ac ? ac.innerHTML : ''; at.hidden = !ac;
+    interaccion(false);
+    mapa.invalidateSize();
+    fl.style.transform = 'rotate(' + (-rotAcum) + 'deg)'; ponerContra();
+  }
+  function actualizarRotacion(r) {
+    if (!(orientRumbo && modoRuta) || !r.mov || r.rumbo === null) return;
+    var mp = document.getElementById('mapa');
+    if (rotUlt === null) { rotAcum = r.rumbo; rotUlt = r.rumbo; }
+    else {
+      var delta = ((r.rumbo - rotUlt + 540) % 360) - 180;
+      if (Math.abs(delta) < 3) return;                   // se ignoran los cambios pequeños
+      rotAcum += delta; rotUlt = r.rumbo;
+    }
+    mp.style.transform = 'rotate(' + (-rotAcum) + 'deg)';
+    document.getElementById('orientFlecha').style.transform = 'rotate(' + (-rotAcum) + 'deg)';
+    ponerContra();
+  }
+  document.getElementById('orientBtn').addEventListener('click', function () {
+    orientRumbo = !orientRumbo;
+    try { localStorage.setItem('orientacion', orientRumbo ? 'rumbo' : 'norte'); } catch (err) {}
+    aplicarOrientacion();
+  });
+  document.getElementById('zoomMas').addEventListener('click', function () { mapa.zoomIn(); });
+  document.getElementById('zoomMenos').addEventListener('click', function () { mapa.zoomOut(); });
+  window.addEventListener('resize', aplicarOrientacion);
+
+  // ---------- Cámaras de tráfico de la DGT ----------
+  var CAM_RUTA = 'datex2/v3/dgt/DevicePublication/camaras_datex2_v37.xml';
+  var CAM_FUENTES = [];
+  if (location.protocol === 'https:' || location.protocol === 'http:') CAM_FUENTES.push('/dgt/' + CAM_RUTA, '/dgt/datex2/v3/dgt/DevicePublication/camaras_datex2_v36.xml');   // proxy de la app (Netlify)
+  CAM_FUENTES.push('https://nap.dgt.es/' + CAM_RUTA, 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://nap.dgt.es/' + CAM_RUTA));
+  var camaras = [], camGrupo = L.layerGroup(), camCargando = false, camAbierta = null, camTimer = null;
+  function camMsgMenu(t) { document.getElementById('camMsgMenu').textContent = t; }
+  function textoDe(rec, nombres) {
+    for (var i = 0; i < nombres.length; i++) {
+      var e = rec.getElementsByTagNameNS('*', nombres[i])[0];
+      if (e && e.textContent.trim()) return e.textContent.replace(/\s+/g, ' ').trim();
+    }
+    return '';
+  }
+  // Lee el XML DATEX II de la DGT: para cada dirección de imagen se busca el registro más pequeño que tenga latitud y longitud
+  function leerCamaras(xml) {
+    var doc = new DOMParser().parseFromString(xml, 'text/xml'), out = [], vistos = {};
+    if (doc.getElementsByTagName('parsererror').length) return [];
+    var urls = doc.getElementsByTagNameNS('*', 'urlLinkAddress');
+    for (var i = 0; i < urls.length; i++) {
+      var u = urls[i].textContent.trim();
+      if (!/^https?:\/\//i.test(u) || vistos[u]) continue;
+      var rec = urls[i].parentNode;
+      while (rec && rec.getElementsByTagNameNS && !rec.getElementsByTagNameNS('*', 'latitude').length) rec = rec.parentNode;
+      if (!rec || !rec.getElementsByTagNameNS || rec.getElementsByTagNameNS('*', 'urlLinkAddress').length > 3) continue;   // registro ambiguo
+      var lat = parseFloat(rec.getElementsByTagNameNS('*', 'latitude')[0].textContent), lon = parseFloat(rec.getElementsByTagNameNS('*', 'longitude')[0].textContent);
+      if (!isFinite(lat) || !isFinite(lon)) continue;
+      vistos[u] = 1;
+      out.push({ lat: lat, lon: lon, url: u, nombre: textoDe(rec, ['cctvCameraIdentification', 'cameraIdentification', 'cameraDescription', 'roadName', 'description']) || 'Cámara de la DGT' });
+    }
+    return out;
+  }
+  function dibujarCamaras() {
+    camGrupo.clearLayers();
+    if (!mapa.hasLayer(camGrupo) || !camaras.length || mapa.getZoom() < 9) return;
+    var b = mapa.getBounds().pad(0.1), c = mapa.getCenter();
+    var vis = camaras.filter(function (m) { return b.contains([m.lat, m.lon]); });
+    if (vis.length > 400) {                                   // en zonas muy cargadas, las 400 más cercanas al centro
+      vis.sort(function (a, z) { return distM([a.lat, a.lon], [c.lat, c.lng]) - distM([z.lat, z.lon], [c.lat, c.lng]); });
+      vis = vis.slice(0, 400);
+    }
+    vis.forEach(function (m) {
+      L.marker([m.lat, m.lon], { keyboard: false, icon: L.divIcon({ className: 'cam-icono', html: '<span>📷</span>', iconSize: [26, 26] }) })
+        .on('click', function () { abrirCamara(m); }).addTo(camGrupo);
+    });
+  }
+  async function cargarCamaras() {
+    if (camaras.length) { dibujarCamaras(); return; }
+    if (camCargando) return;
+    camCargando = true; camMsgMenu('Cargando las cámaras de la DGT…');
+    var ok = false, fallos = [];
+    for (var i = 0; i < CAM_FUENTES.length && !ok; i++) {
+      var nombre = CAM_FUENTES[i].indexOf('/dgt/') === 0 ? 'servidor de la app' : (CAM_FUENTES[i].indexOf('allorigins') >= 0 ? 'servicio de respaldo' : 'DGT directo');
+      try {
+        var ctl = new AbortController(), to = setTimeout(function () { ctl.abort(); }, 30000);
+        var r = await fetch(CAM_FUENTES[i], { signal: ctl.signal });
+        clearTimeout(to);
+        if (!r.ok) { fallos.push(nombre + ': error ' + r.status); continue; }
+        var lista = leerCamaras(await r.text());
+        if (lista.length) { camaras = lista; ok = true; } else fallos.push(nombre + ': sin cámaras en la respuesta');
+      } catch (err) { fallos.push(nombre + ': no accesible'); }
+    }
+    camCargando = false;
+    if (ok) { camMsgMenu(camaras.length + ' cámaras cargadas.'); dibujarCamaras(); }
+    else camMsgMenu('No se ha podido cargar el listado de la DGT (' + fallos.join('; ') + '). Descarga el XML y cárgalo con el botón de abajo.');
+  }
+  function urlCamara(m) {
+    var u = m.url;
+    if (location.protocol === 'https:' && /^http:\/\/infocar\.dgt\.es\//i.test(u)) u = '/dgtimg/' + u.replace(/^http:\/\/infocar\.dgt\.es\//i, '');   // imagen a través del servidor de la app
+    else if (location.protocol === 'https:' && /^http:/i.test(u)) u = u.replace(/^http:/i, 'https:');
+    return u + (u.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();     // evita ver una imagen antigua guardada
+  }
+  function verImagenCamara() {
+    if (!camAbierta) return;
+    var img = document.getElementById('camImg'), msg = document.getElementById('camMsg');
+    img.onload = function () { msg.hidden = true; img.style.display = 'block'; };
+    img.onerror = function () {
+      img.style.display = 'none'; msg.hidden = false;
+      msg.textContent = 'No se puede mostrar la imagen aquí (la DGT puede servirla por una conexión no segura). Ábrela en una pestaña nueva.';
+    };
+    img.src = urlCamara(camAbierta);
+  }
+  function abrirCamara(m) {
+    camAbierta = m;
+    document.getElementById('camTitulo').textContent = m.nombre;
+    document.getElementById('camPanel').hidden = false;
+    verImagenCamara();
+    clearInterval(camTimer); camTimer = setInterval(verImagenCamara, 60000);
+  }
+  function cerrarCamara() {
+    document.getElementById('camPanel').hidden = true; camAbierta = null; clearInterval(camTimer);
+    document.getElementById('camImg').removeAttribute('src');
+  }
+  document.getElementById('camCerrar').addEventListener('click', cerrarCamara);
+  document.getElementById('camRefrescar').addEventListener('click', verImagenCamara);
+  document.getElementById('camGrande').addEventListener('click', function () { if (camAbierta) window.open(camAbierta.url, '_blank', 'noopener'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarCamara(); });
+  mapa.on('moveend', dibujarCamaras);
+  document.getElementById('camaras').addEventListener('change', function (e) {
+    try { localStorage.setItem('camaras', e.target.checked ? '1' : '0'); } catch (err) {}
+    if (e.target.checked) { camGrupo.addTo(mapa); cargarCamaras(); }
+    else { mapa.removeLayer(camGrupo); cerrarCamara(); }
+  });
+  document.getElementById('camArchivo').addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      try {
+        var lista = leerCamaras(String(rd.result));
+        if (!lista.length) { camMsgMenu('No he encontrado cámaras en ese archivo.'); return; }
+        camaras = lista; camMsgMenu(lista.length + ' cámaras cargadas desde el archivo.');
+        var chk = document.getElementById('camaras'); chk.checked = true;
+        camGrupo.addTo(mapa); dibujarCamaras();
+      } catch (err) { camMsgMenu('No he podido leer ese archivo.'); }
+    };
+    rd.readAsText(f);
+  });
+  try {
+    if (localStorage.getItem('camaras') === '1') { document.getElementById('camaras').checked = true; camGrupo.addTo(mapa); cargarCamaras(); }
+  } catch (err) {}
+
+  // ---------- Barra de búsqueda: se puede ocultar y dejar solo las tres rayas ----------
+  (function () {
+    var chk = document.getElementById('ocultarBuscador');
+    function aplicar() {
+      document.body.classList.toggle('sinbuscador', chk.checked);
+      try { localStorage.setItem('sinBuscador', chk.checked ? '1' : '0'); } catch (err) {}
+      mapa.invalidateSize();
+    }
+    try { chk.checked = localStorage.getItem('sinBuscador') === '1'; } catch (err) {}
+    chk.addEventListener('change', aplicar);
+    document.body.classList.toggle('sinbuscador', chk.checked);
+  })();
+
+  // ---------- Menú en pantallas pequeñas ----------
+  document.getElementById('btnMenu').addEventListener('click', function () { document.body.classList.toggle('menu'); });
+  mapa.on('click', function () { document.body.classList.remove('menu'); });
+  document.getElementById('modo').addEventListener('change', function () { document.body.classList.remove('menu'); });
+
+  // ---------- Controles ----------
+  document.getElementById('base').addEventListener('change', function (e) {
+    mapa.removeLayer(baseActual);
+    baseActual = bases[e.target.value].addTo(mapa);
+    baseActual.bringToBack();
+    var esMdt = e.target.value === 'mdt';
+    if (esMdt && mapa.hasLayer(sombra)) { /* se mantiene, mejora el relieve */ }
+  });
+  document.getElementById('sombra').addEventListener('change', function (e) {
+    try { localStorage.setItem('sombra', e.target.checked ? '1' : '0'); } catch (err) {}
+    e.target.checked ? sombra.addTo(mapa) : mapa.removeLayer(sombra);
+    if (e.target.checked) { sombra.bringToFront(); }
+  });
+  document.getElementById('sombraOp').addEventListener('input', function (e) { sombra.setOpacity(parseFloat(e.target.value)); });
+  document.getElementById('parro').addEventListener('change', function (e) {
+    if (e.target.checked) { parroGrupo.addTo(mapa); parroCarga = null; cargarParroquias(); }
+    else { mapa.removeLayer(parroGrupo); }
+  });
+  document.getElementById('parroOp').addEventListener('input', function (e) { parroPane.style.opacity = e.target.value; });
+  document.getElementById('munisCon').addEventListener('input', estiloMunis);
+  document.getElementById('munis').addEventListener('change', function (e) {
+    if (e.target.checked) {
+      muniGrupo.addTo(mapa); muniCarga = null; cargarMunisVector();
+      concGrupo.addTo(mapa); concGrupoTodos.addTo(mapa); concCarga = null; cargarConcellos();
+    } else { mapa.removeLayer(muniGrupo); mapa.removeLayer(concGrupo); mapa.removeLayer(concGrupoTodos); }
+  });
+  document.getElementById('kms').addEventListener('change', function (e) {
+    if (e.target.checked) { capaKm.addTo(mapa); kmCarga = null; cargarKm(); }
+    else { mapa.removeLayer(capaKm); pkEl.textContent = ''; }
+  });
+
+  // ---------- Búsqueda (solo España) ----------
+  document.getElementById('buscar').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = document.getElementById('q').value.trim();
+    if (!q) return;
+    var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=es&accept-language=es&q=' + encodeURIComponent(q);
+    fetch(url).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.length) { lugarEl.textContent = 'No se encontró «' + q + '» en España'; return; }
+      var r0 = res[0], bb = r0.boundingbox;
+      mapa.fitBounds([[+bb[0], +bb[2]], [+bb[1], +bb[3]]], { maxZoom: 16 });
+      lugarEl.textContent = r0.display_name;
+    }).catch(function () { lugarEl.textContent = 'La búsqueda falló, inténtalo de nuevo'; });
+  });
+  cargarParroquias();
+  cargarConcellos();
+  cargarMunisVector();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+}
+</script>
+</body>
+</html>
