@@ -2645,21 +2645,36 @@ if (typeof L !== 'undefined') (function () {
     }
     return '';
   }
-  // Lee el XML DATEX II de la DGT: para cada dirección de imagen se busca el registro más pequeño que tenga latitud y longitud
+  // Lee el XML DATEX II de la DGT. Formato actual (v3): un <device> por cámara, con la imagen en <deviceUrl>,
+  // las coordenadas en <pointCoordinates>, la carretera en <roadName> y el kilómetro en <kilometerPoint>.
   function leerCamaras(xml) {
     var doc = new DOMParser().parseFromString(xml, 'text/xml'), out = [], vistos = {};
     if (doc.getElementsByTagName('parsererror').length) return [];
-    var urls = doc.getElementsByTagNameNS('*', 'urlLinkAddress');
-    for (var i = 0; i < urls.length; i++) {
-      var u = urls[i].textContent.trim();
-      if (!/^https?:\/\//i.test(u) || vistos[u]) continue;
-      var rec = urls[i].parentNode;
-      while (rec && rec.getElementsByTagNameNS && !rec.getElementsByTagNameNS('*', 'latitude').length) rec = rec.parentNode;
-      if (!rec || !rec.getElementsByTagNameNS || rec.getElementsByTagNameNS('*', 'urlLinkAddress').length > 3) continue;   // registro ambiguo
-      var lat = parseFloat(rec.getElementsByTagNameNS('*', 'latitude')[0].textContent), lon = parseFloat(rec.getElementsByTagNameNS('*', 'longitude')[0].textContent);
-      if (!isFinite(lat) || !isFinite(lon)) continue;
+    var num = function (rec, n) { var e = rec.getElementsByTagNameNS('*', n)[0]; return e ? parseFloat(e.textContent) : NaN; };
+    var devs = doc.getElementsByTagNameNS('*', 'device');
+    for (var i = 0; i < devs.length; i++) {
+      var d = devs[i], tipo = textoDe(d, ['typeOfDevice']);
+      if (tipo && !/camera/i.test(tipo)) continue;
+      var u = textoDe(d, ['deviceUrl', 'urlLinkAddress']), lat = num(d, 'latitude'), lon = num(d, 'longitude');
+      if (!/^https?:\/\//i.test(u) || !isFinite(lat) || !isFinite(lon) || vistos[u]) continue;
       vistos[u] = 1;
-      out.push({ lat: lat, lon: lon, url: u, nombre: textoDe(rec, ['cctvCameraIdentification', 'cameraIdentification', 'cameraDescription', 'roadName', 'description']) || 'Cámara de la DGT' });
+      var via = textoDe(d, ['roadName']), km = num(d, 'kilometerPoint'), dest = textoDe(d, ['roadDestination']), prov = textoDe(d, ['province']);
+      out.push({ lat: lat, lon: lon, url: u,
+        nombre: (via || 'Cámara') + (isFinite(km) ? ' · km ' + (Math.round(km * 10) / 10).toString().replace('.', ',') : '') + (dest ? ' · hacia ' + dest : '') + (prov ? ' · ' + prov : '') });
+    }
+    if (out.length) return out;
+    // Formato antiguo (v2): se busca cada dirección de imagen y el registro más pequeño que tenga latitud y longitud
+    var urls = doc.getElementsByTagNameNS('*', 'urlLinkAddress');
+    for (var j = 0; j < urls.length; j++) {
+      var u2 = urls[j].textContent.trim();
+      if (!/^https?:\/\//i.test(u2) || vistos[u2]) continue;
+      var rec = urls[j].parentNode;
+      while (rec && rec.getElementsByTagNameNS && !rec.getElementsByTagNameNS('*', 'latitude').length) rec = rec.parentNode;
+      if (!rec || !rec.getElementsByTagNameNS || rec.getElementsByTagNameNS('*', 'urlLinkAddress').length > 3) continue;
+      var la = num(rec, 'latitude'), lo = num(rec, 'longitude');
+      if (!isFinite(la) || !isFinite(lo)) continue;
+      vistos[u2] = 1;
+      out.push({ lat: la, lon: lo, url: u2, nombre: textoDe(rec, ['cctvCameraIdentification', 'cameraIdentification', 'cameraDescription', 'roadName']) || 'Cámara de la DGT' });
     }
     return out;
   }

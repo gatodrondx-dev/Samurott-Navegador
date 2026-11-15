@@ -1,5 +1,5 @@
 // Guarda la aplicación para abrirla rápido. Los mapas y los datos se piden siempre a internet.
-const CACHE = 'mapa-espana-v11';
+const CACHE = 'mapa-espana-v12';
 const BASE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
